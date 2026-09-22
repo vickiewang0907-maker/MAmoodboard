@@ -1,0 +1,610 @@
+/* 'I Eat Crayons' isn't an actual Google Font (that request 400s), so it's
+   embedded directly as a data URI — this is the only way it reliably shows
+   up for everyone opening the board, regardless of network or OS. */
+@font-face{
+  font-family:'I Eat Crayons';
+  src:url(data:font/woff;base64,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) format('woff');
+  font-weight:normal;
+  font-style:normal;
+  font-display:swap;
+}
+
+:root{
+  --bg:#ffffff;
+  --grid:#e6e6e2;
+  --ink:#141311;
+  --ink-soft:#6b6863;
+  --card:#ffffff;
+  --border:#141311;
+  --border-soft:#c9c7c0;
+  --accent:#c0392b;
+  --crayon:#e2572b;
+  --on-crayon:#ffffff;
+  --paper-invert-bg:#141311;
+  --paper-invert-text:#ffffff;
+  --shadow:rgba(20,19,17,.14);
+  --ring:#141311;
+  --check-a:#eeeeee;
+  --check-b:#ffffff;
+  --ui-font:'I Eat Crayons',"HanziPen TC",'Archivo',-apple-system,BlinkMacSystemFont,"PingFang TC","Heiti TC","Noto Sans TC","Noto Sans CJK TC","Microsoft JhengHei","Microsoft YaHei","WenQuanYi Micro Hei",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#111110;
+    --grid:#232320;
+    --ink:#f2f0ea;
+    --ink-soft:#948f83;
+    --card:#171716;
+    --border:#f2f0ea;
+    --border-soft:#3a3833;
+    --accent:#e07a6c;
+    --crayon:#e2896f;
+    --shadow:rgba(0,0,0,.5);
+    --ring:#f2f0ea;
+    --check-a:#1c1c1a;
+    --check-b:#111110;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#111110;
+  --grid:#232320;
+  --ink:#f2f0ea;
+  --ink-soft:#948f83;
+  --card:#171716;
+  --border:#f2f0ea;
+  --border-soft:#3a3833;
+  --accent:#e07a6c;
+  --crayon:#e2896f;
+  --shadow:rgba(0,0,0,.5);
+  --ring:#f2f0ea;
+  --check-a:#1c1c1a;
+  --check-b:#111110;
+}
+*{box-sizing:border-box;}
+[hidden]{ display:none !important; }
+html,body{height:100%;}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--ui-font);
+  overflow:hidden;
+}
+.app{ height:100%; display:flex; flex-direction:column; position:relative; user-select:none; -webkit-user-select:none; }
+/* Dragging a marquee-select box, a node, or a connector line can sweep the
+   mouse across the toolbar/zoom controls/help panel; without this the
+   browser text-selects whatever UI chrome the drag passes over. Inputs and
+   the note editor opt back in below since they need real text selection. */
+.modal-input, .node-text .editable{ user-select:text; -webkit-user-select:text; }
+
+/* ---------- toolbar ---------- */
+.toolbar{
+  flex:none;
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:10px;
+  padding:14px 16px 20px;
+  padding-top:calc(14px + env(safe-area-inset-top,0px));
+  background:color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter:blur(6px);
+  z-index:40;
+  position:relative;
+}
+.toolbar-rule{
+  position:absolute;
+  left:0; right:0; bottom:0;
+  width:100%; height:10px;
+  overflow:visible;
+  pointer-events:none;
+}
+.toolbar-rule path{ fill:none; stroke:var(--crayon); stroke-width:2.2; opacity:.8; filter:url(#crayonA); }
+.brand{
+  font-family:var(--ui-font);
+  font-weight:400;
+  font-size:30px;
+  letter-spacing:.01em;
+  margin-right:6px;
+  white-space:nowrap;
+  color:var(--ink);
+  cursor:pointer;
+}
+.dot-btn{
+  appearance:none;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:22px; height:22px;
+  padding:0;
+  margin-left:1px;
+  border:none;
+  background:transparent;
+  cursor:pointer;
+  vertical-align:middle;
+  transform:translateY(-1px);
+}
+.dot-btn svg{ width:100%; height:100%; overflow:visible; }
+.dot-btn path{ filter:url(#crayonA); transition:fill .12s ease; }
+.dot-btn:hover path{ fill:#141311; }
+.visually-hidden{
+  position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+  overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+}
+.accentpanel{
+  position:absolute;
+  top:44px; left:14px;
+  background:var(--card);
+  border:2px solid var(--crayon);
+  border-radius:30px 12px 30px 12px/12px 30px 12px 30px;
+  padding:16px;
+  box-shadow:0 10px 26px var(--shadow);
+  z-index:50;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  min-width:170px;
+}
+.accent-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.accent-row label{
+  font-family:var(--ui-font);
+  font-size:14px;
+  color:var(--ink);
+}
+.accentpanel input[type="color"]{
+  width:30px; height:30px;
+  border:none;
+  border-radius:50%;
+  padding:0;
+  cursor:pointer;
+  background:transparent;
+  flex:none;
+}
+.accentpanel input[type="color"]::-webkit-color-swatch-wrapper{ padding:0; }
+.accentpanel input[type="color"]::-webkit-color-swatch{ border:none; border-radius:50%; }
+/* The swatch itself gets a wobbly clip-path (see wobblifySwatch), which
+   clips away any box-shadow drawn on the input directly — so the "matches
+   the background" ring is its own hand-drawn SVG outline sitting on this
+   plain, unclipped wrapper instead, colored with the current line color. */
+.swatch-wrap{ display:inline-flex; position:relative; width:30px; height:30px; }
+.swatch-ring{ position:absolute; inset:0; width:30px; height:30px; pointer-events:none; display:none; overflow:visible; }
+.swatch-wrap.swatch-outline .swatch-ring{ display:block; }
+.accentpanel-actions{ display:flex; gap:6px; margin-top:2px; }
+.accentpanel-actions .btn{ flex:1; justify-content:center; padding:6px 8px; font-size:13px; }
+.btn{
+  appearance:none;
+  position:relative;
+  isolation:isolate;
+  border:none;
+  border-radius:20px;
+  background:transparent;
+  color:var(--ink);
+  font-family:var(--ui-font);
+  font-size:15px;
+  font-weight:400;
+  letter-spacing:.01em;
+  padding:8px 15px;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  white-space:nowrap;
+  line-height:1.1;
+  transition:color .12s ease;
+}
+.btn:hover{color:var(--on-crayon);}
+.btn:active{transform:scale(.97);}
+/* The wobbly outline carries the button's own fill (matching the card
+   color), so the visible shape is always exactly the hand-drawn line —
+   never a plain rounded rect poking out past it. */
+.crayon-frame{ position:absolute; overflow:visible; pointer-events:none; z-index:-1; }
+.crayon-frame path{ fill:var(--card); stroke:var(--crayon); stroke-width:2; opacity:.9; filter:url(#crayonA); transition:fill .15s ease, stroke .15s ease, opacity .15s ease; }
+.btn:hover .crayon-frame path{ fill:var(--crayon); stroke:var(--crayon); opacity:1; }
+/* Primary (confirm) actions stay filled with the line color so they read
+   as distinct from a plain outlined Cancel — the opposite of Cancel's
+   fill/outline relationship, not a flat black invert. */
+.btn.primary{ font-weight:600; color:var(--on-crayon); }
+.btn.primary .crayon-frame path{ fill:var(--crayon); opacity:1; }
+/* --accent is just an alias for --crayon (see applyTheme), so filling with
+   it on hover was a no-op — darken the fill instead so Yes visibly reacts
+   too, not just Cancel. */
+.btn.primary:hover .crayon-frame path{ fill:color-mix(in srgb, var(--crayon) 78%, black); stroke:color-mix(in srgb, var(--crayon) 78%, black); }
+.spacer{flex:1;}
+.hint-toggle{margin-left:auto;}
+.btn.iconbtn{ width:34px; height:34px; padding:0; border-radius:50%; justify-content:center; font-size:17px; }
+input[type=file]{display:none;}
+
+/* ---------- viewport / world ---------- */
+.viewport{
+  flex:1;
+  position:relative;
+  overflow:hidden;
+  touch-action:none;
+  cursor:grab;
+  background-color:var(--bg);
+}
+.viewport.panning{cursor:grabbing;}
+.world{ position:absolute; left:0;top:0; width:0;height:0; overflow:visible; transform-origin:0 0; }
+svg.edges{ position:absolute; left:0;top:0; width:1px;height:1px; overflow:visible; pointer-events:none; }
+svg.edges path.hit{ fill:none; stroke:transparent; stroke-width:20; pointer-events:stroke; cursor:pointer; }
+svg.edges path.visible{
+  fill:none;
+  stroke:var(--crayon);
+  stroke-width:2.6;
+  stroke-linecap:round;
+  filter:url(#crayonA);
+  pointer-events:none;
+}
+svg.edges path.fuzz{
+  fill:none;
+  stroke:var(--crayon);
+  stroke-width:2.6;
+  stroke-linecap:round;
+  opacity:.4;
+  filter:url(#crayonB);
+  pointer-events:none;
+}
+svg.edges g.edge:hover path.visible{ stroke:var(--accent); }
+svg.edges g.edge:hover path.fuzz{ stroke:var(--accent); }
+svg.edges path.temp{ fill:none; stroke:var(--crayon); stroke-width:2.6; stroke-linecap:round; opacity:.85; filter:url(#crayonA); pointer-events:none; }
+
+/* ---------- hand-drawn circle frame ---------- */
+.frame{ position:relative; }
+.circle-frame{ position:absolute; overflow:visible; pointer-events:none; }
+/* Invisible hit-target the same size as the drawn circle, so hovering or
+   grabbing anywhere inside the circle (not just the tight photo/text box)
+   reveals the connector dot and lets you drag from there too. */
+.node-hit{ position:absolute; z-index:-1; }
+.circle-frame path.circle-visible{ fill:var(--card); stroke:var(--crayon); stroke-width:2.2; stroke-opacity:.85; filter:url(#crayonA); transition:stroke-width .12s ease, stroke-opacity .12s ease, fill .15s ease; }
+.node:hover .circle-frame path.circle-visible{ stroke-width:3.2; stroke-opacity:1; }
+
+.connector-handle{
+  position:absolute;
+  width:30px;height:30px;
+  transform:translate(-50%,-50%);
+  cursor:crosshair;
+  /* Sits BELOW the fixed-position Aa/delete/resize buttons (z-index 6-8):
+     this handle chases the pointer around the circle's whole edge, so
+     without this it would slide right under the cursor over one of those
+     buttons and steal the click meant for them. */
+  z-index:4;
+  display:none;
+  align-items:center;
+  justify-content:center;
+}
+.node:hover .connector-handle{ display:flex; }
+/* While actively dragging a connector line, every node's own Aa/delete/
+   resize buttons would otherwise pop up on hover and sit right where you're
+   trying to drop the line — hide them for the duration of the drag so the
+   target circle is a clean, reachable drop target. */
+.app.connecting .node .del,
+.app.connecting .node .fit-btn,
+.app.connecting .node .resize-handle{ display:none !important; }
+.connector-handle::after{
+  content:"";
+  width:13px;height:13px;
+  border-radius:50%;
+  border:1.6px solid var(--crayon);
+  background:var(--card);
+}
+.connector-handle:hover::after{ background:var(--accent); border-color:var(--accent); }
+
+.resize-handle{
+  position:absolute;
+  width:30px;height:30px;
+  transform:translate(-50%,-50%);
+  cursor:nwse-resize;
+  z-index:8;
+  display:none;
+  align-items:center;
+  justify-content:center;
+}
+.resize-handle svg{ width:18px;height:18px; overflow:visible; }
+.resize-handle path{ fill:none; stroke:var(--crayon); stroke-width:1.8; stroke-linecap:round; }
+.node:hover .resize-handle,.node.selected .resize-handle{ display:flex; }
+
+/* ---------- nodes ---------- */
+.node{ position:absolute; left:0;top:0; cursor:grab; user-select:none; -webkit-user-select:none; }
+.node.dragging{ cursor:grabbing; z-index:30; }
+.node .del{
+  position:absolute;
+  width:19px;height:19px;
+  transform:translate(-50%,-50%);
+  border-radius:50%;
+  border:1.6px solid var(--crayon);
+  background:var(--card);
+  color:var(--ink);
+  font-size:12px;
+  line-height:1;
+  cursor:pointer;
+  display:none;
+  align-items:center;justify-content:center;
+  z-index:6;
+}
+.node .del:hover{ background:var(--accent); color:#fff; border-color:var(--accent); }
+.node:hover .del,.node.selected .del{display:flex;}
+/* Selection is shown on the circle's own hand-drawn line, not a hard box. */
+.node.selected .circle-frame path.circle-visible{ stroke:var(--accent); stroke-width:3.4; stroke-opacity:1; }
+
+.node-img .imgwrap{
+  position:relative;
+  background:var(--bg);
+}
+.node-img img{
+  display:block;
+  width:100%;height:100%;
+  object-fit:contain;
+  background-image:
+    linear-gradient(45deg,var(--check-a) 25%,transparent 25%),
+    linear-gradient(-45deg,var(--check-a) 25%,transparent 25%),
+    linear-gradient(45deg,transparent 75%,var(--check-a) 75%),
+    linear-gradient(-45deg,transparent 75%,var(--check-a) 75%);
+  background-color:var(--check-b);
+  background-size:12px 12px;
+  background-position:0 0,0 6px,6px -6px,-6px 0;
+}
+.node-text .editable{
+  position:relative;
+  box-sizing:border-box;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  padding:18px 20px;
+  outline:none;
+  font-family:var(--ui-font);
+  font-size:21px;
+  line-height:1.35;
+  color:var(--ink);
+  white-space:pre-wrap;
+  word-break:break-word;
+}
+.editable:empty:before{ content:attr(data-placeholder); color:var(--ink-soft); }
+.fit-btn{
+  position:absolute;
+  transform:translate(-50%,-50%);
+  width:26px;height:26px;
+  border-radius:50%;
+  border:1.6px solid var(--crayon);
+  background:var(--card);
+  color:var(--ink);
+  font-family:var(--ui-font);
+  font-size:12px;
+  line-height:1;
+  cursor:pointer;
+  display:none;
+  align-items:center;justify-content:center;
+  z-index:6;
+}
+.node:hover .fit-btn,.node.selected .fit-btn{display:flex;}
+.fit-btn:hover{ background:var(--accent); color:#fff; border-color:var(--accent); }
+.fit-btn.active{ background:var(--crayon); color:#fff; border-color:var(--crayon); }
+
+/* crop tool */
+.cropoverlay{
+  position:absolute;
+  inset:0;
+  overflow:hidden;
+  z-index:5;
+  cursor:default;
+  touch-action:none;
+}
+.crop-rect{
+  position:absolute;
+  border:2px solid var(--crayon);
+  box-shadow:0 0 0 2000px rgba(20,19,17,.55);
+  cursor:move;
+  touch-action:none;
+}
+.crop-handle{
+  position:absolute;
+  width:14px; height:14px;
+  margin:-8px;
+  border-radius:50%;
+  background:var(--crayon);
+  border:2px solid #fff;
+  touch-action:none;
+}
+.crop-handle.nw{ left:0; top:0; cursor:nwse-resize; }
+.crop-handle.se{ left:100%; top:100%; cursor:nwse-resize; }
+.crop-handle.ne{ left:100%; top:0; cursor:nesw-resize; }
+.crop-handle.sw{ left:0; top:100%; cursor:nesw-resize; }
+.croprow{ display:flex; gap:6px; margin-top:8px; }
+.croprow .btn{ flex:1; justify-content:center; padding:6px 8px; font-size:13px; }
+
+/* ---------- zoom controls ---------- */
+.zoomctl{
+  position:absolute;
+  right:16px;
+  bottom:calc(16px + env(safe-area-inset-bottom,0px));
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  z-index:30;
+}
+.zoomctl button{
+  position:relative;
+  isolation:isolate;
+  width:34px;height:34px;
+  border-radius:50%;
+  border:none;
+  background:transparent;
+  color:var(--ink);
+  font-family:var(--ui-font);
+  font-size:16px;
+  cursor:pointer;
+}
+.zoomctl button:hover{ color:var(--on-crayon); }
+.zoomctl button:active{ transform:scale(.94); }
+.zoomctl button .crayon-frame path{ fill:var(--card); stroke:var(--crayon); }
+.zoomctl button:hover .crayon-frame path{ fill:var(--crayon); stroke:var(--crayon); opacity:1; }
+
+/* ---------- help panel ---------- */
+.help{
+  position:absolute;
+  top:64px; right:14px;
+  width:min(270px, calc(100vw - 28px));
+  max-height:calc(100% - 84px);
+  overflow-y:auto;
+  background:var(--card);
+  border:2px solid var(--crayon);
+  border-radius:30px 12px 30px 12px/12px 30px 12px 30px;
+  padding:18px;
+  box-shadow:0 10px 26px var(--shadow);
+  z-index:50;
+  font-size:14px;
+  line-height:1.5;
+}
+.help h3{
+  margin:0 0 8px;
+  font-family:var(--ui-font);
+  font-size:20px;
+  font-weight:400;
+}
+.help ul{ margin:0; padding-left:0; list-style:none; }
+.help li{ padding-left:14px; position:relative; margin-bottom:5px; }
+.help li:before{ content:"-"; position:absolute; left:0; color:var(--ink-soft); }
+.help .close{
+  position:absolute; top:10px; right:14px;
+  border:none; background:none; cursor:pointer;
+  font-size:18px; color:var(--ink-soft);
+}
+
+/* ---------- toast ---------- */
+.toast{
+  position:absolute;
+  left:50%; bottom:calc(20px + env(safe-area-inset-bottom,0px));
+  transform:translate(-50%,20px);
+  isolation:isolate;
+  color:var(--on-crayon);
+  padding:9px 18px;
+  font-family:var(--ui-font);
+  font-size:15px;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .25s ease, transform .25s ease;
+  z-index:60;
+  max-width:min(80vw,340px);
+  text-align:center;
+}
+.toast .crayon-frame path{ fill:var(--crayon); stroke:var(--crayon); opacity:1; }
+.toast.show{ opacity:1; transform:translate(-50%,0); }
+
+/* ---------- board tabs panel ---------- */
+.boardpanel{
+  position:absolute;
+  top:44px; left:14px;
+  background:var(--card);
+  border:2px solid var(--crayon);
+  border-radius:26px 10px 26px 10px/10px 26px 10px 26px;
+  padding:14px;
+  box-shadow:0 10px 26px var(--shadow);
+  z-index:50;
+  min-width:190px;
+  max-width:min(260px, calc(100vw - 28px));
+}
+.boardlist{ display:flex; flex-direction:column; gap:4px; max-height:240px; overflow-y:auto; margin-bottom:10px; }
+.boardrow{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 8px; border-radius:12px; cursor:grab; }
+.boardrow:hover{ background:color-mix(in srgb, var(--crayon) 16%, transparent); }
+.boardrow.active .boardname{ color:var(--accent); font-weight:700; }
+.boardrow.dragging{ opacity:.4; }
+.boardrow.drop-before{ box-shadow:inset 0 2px 0 var(--crayon); }
+.boardrow.drop-after{ box-shadow:inset 0 -2px 0 var(--crayon); }
+.boardname{ font-family:var(--ui-font); font-size:15px; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; }
+.boarddel{ border:none; background:transparent; color:var(--ink-soft); cursor:pointer; line-height:1; padding:2px 4px; flex:none; display:inline-flex; align-items:center; justify-content:center; }
+.boarddel svg{ display:block; }
+.boarddel:hover{ color:var(--accent); }
+.boardadd{ width:100%; justify-content:center; }
+
+/* ---------- modal dialogs (confirm / rename) ---------- */
+.modal-overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(20,19,17,.45);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:100;
+  padding:20px;
+}
+.modal-box{
+  background:var(--card);
+  border:2px solid var(--crayon);
+  border-radius:30px 12px 30px 12px/12px 30px 12px 30px;
+  padding:22px;
+  box-shadow:0 14px 34px var(--shadow);
+  max-width:min(320px, calc(100vw - 40px));
+  width:100%;
+}
+.modal-msg{
+  margin:0 0 16px;
+  font-family:var(--ui-font);
+  font-size:16px;
+  line-height:1.5;
+  color:var(--ink);
+}
+.modal-input{
+  width:100%;
+  box-sizing:border-box;
+  padding:9px 12px;
+  margin-bottom:16px;
+  border:1.6px solid var(--border-soft);
+  border-radius:12px;
+  background:var(--card);
+  color:var(--ink);
+  font-family:var(--ui-font);
+  font-size:15px;
+  outline:none;
+}
+.modal-input:focus{ border-color:var(--crayon); }
+.modal-row{ display:flex; gap:8px; justify-content:flex-end; }
+.modal-row .btn{ padding:7px 16px; }
+.modal-box-wide{ max-width:min(380px, calc(100vw - 40px)); }
+/* The Clear-all / Delete-board Yes-or-no dialogs specifically read as sitting
+   "on the canvas" rather than as another card, so they use the paper color
+   instead of the card color every other modal (rename, welcome) uses. */
+.modal-confirm{ background:var(--bg); }
+/* On this dialog specifically, Yes's hover inverts against the dialog's own
+   (paper-colored) background rather than the line color, so it stays a
+   clean black-on-white/white-on-black flip whatever the paper color is. */
+.modal-confirm .btn.primary:hover .crayon-frame path{ fill:var(--paper-invert-bg); stroke:var(--paper-invert-bg); }
+.modal-confirm .btn.primary:hover{ color:var(--paper-invert-text); }
+.welcome-list{
+  margin:0 0 18px;
+  padding-left:0;
+  list-style:none;
+  max-height:50vh;
+  overflow-y:auto;
+  font-family:var(--ui-font);
+  font-size:14px;
+  line-height:1.5;
+  color:var(--ink);
+}
+.welcome-list li{ padding-left:14px; position:relative; margin-bottom:5px; }
+.welcome-list li:before{ content:"-"; position:absolute; left:0; color:var(--ink-soft); }
+
+/* ---------- marquee select ---------- */
+.marquee{
+  position:absolute;
+  pointer-events:none;
+  z-index:25;
+  overflow:visible;
+}
+.marquee svg{ position:absolute; left:0; top:0; overflow:visible; }
+.marquee path{
+  fill:color-mix(in srgb, var(--crayon) 12%, transparent);
+  stroke:var(--crayon);
+  stroke-width:1.6;
+  stroke-dasharray:5 4;
+  filter:url(#crayonA);
+}
+
+@media (max-width:480px){
+  .brand{display:none;}
+  .btn{padding:7px 11px; font-size:13px;}
+}

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Mood Board</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800;900&family=Courier+Prime:wght@400;700&family=I+Eat+Crayons&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <div class="toolbar">
+    <div class="brand" id="brandLabel" title="Switch or add a board">Mood Board <button class="dot-btn" id="accentDot" type="button" title="Pick accent color" aria-label="Pick accent color"></button></div>
+    <div class="accentpanel" id="accentPanel" hidden>
+      <div class="accent-row"><label for="paperPicker">Paper</label><span class="swatch-wrap"><svg class="swatch-ring" viewBox="0 0 30 30" aria-hidden="true"><path fill="none" stroke-width="1.2"></path></svg><input type="color" id="paperPicker" aria-label="Pick paper color"></span></div>
+      <div class="accent-row"><label for="cardPicker">Card</label><span class="swatch-wrap"><svg class="swatch-ring" viewBox="0 0 30 30" aria-hidden="true"><path fill="none" stroke-width="1.2"></path></svg><input type="color" id="cardPicker" aria-label="Pick card color"></span></div>
+      <div class="accent-row"><label for="linePicker">Line</label><span class="swatch-wrap"><svg class="swatch-ring" viewBox="0 0 30 30" aria-hidden="true"><path fill="none" stroke-width="1.2"></path></svg><input type="color" id="linePicker" aria-label="Pick line color"></span></div>
+      <div class="accent-row"><label for="inkPicker">Text</label><span class="swatch-wrap"><svg class="swatch-ring" viewBox="0 0 30 30" aria-hidden="true"><path fill="none" stroke-width="1.2"></path></svg><input type="color" id="inkPicker" aria-label="Pick text color"></span></div>
+      <div class="accentpanel-actions">
+        <button class="btn" id="accentReset" type="button">Reset</button>
+      </div>
+    </div>
+    <label class="btn" for="fileInput"><span class="label">Add Images</span></label>
+    <input id="fileInput" type="file" accept="image/*" multiple>
+    <button class="btn" id="addTextBtn"><span class="label">Add Note</span></button>
+    <button class="btn" id="clearBtn"><span class="label">Clear All</span></button>
+    <button class="btn iconbtn hint-toggle" id="helpBtn" title="Help" aria-label="Help">?</button>
+    <svg class="toolbar-rule" preserveAspectRatio="none" viewBox="0 0 1000 10">
+      <path d="M0 5 Q120 2 260 6 T520 4 Q680 7 820 3 T1000 5"/>
+    </svg>
+  </div>
+
+  <div class="viewport" id="viewport">
+    <div class="world" id="world">
+      <svg class="edges" id="edgesSvg">
+        <defs>
+          <filter id="crayonA" x="-30%" y="-30%" width="160%" height="160%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.045 0.09" numOctaves="2" seed="4" result="n"/>
+            <feDisplacementMap in="SourceGraphic" in2="n" scale="3.2" xChannelSelector="R" yChannelSelector="G"/>
+          </filter>
+          <filter id="crayonB" x="-30%" y="-30%" width="160%" height="160%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.07 0.14" numOctaves="2" seed="11" result="n"/>
+            <feDisplacementMap in="SourceGraphic" in2="n" scale="4.5" xChannelSelector="R" yChannelSelector="G"/>
+          </filter>
+        </defs>
+        <g id="edgeGroup"></g>
+      </svg>
+      <div id="nodesLayer"></div>
+    </div>
+    <div class="zoomctl">
+      <button id="zoomIn" title="Zoom in">+</button>
+      <button id="zoomReset" title="Reset zoom">100</button>
+      <button id="zoomOut" title="Zoom out">－</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+<script src="script.js"></script>
+</body>
+</html>
