@@ -35,6 +35,10 @@
   var nodesLayer = document.getElementById('nodesLayer');
   var toastEl = document.getElementById('toast');
   var zoomResetBtn = document.getElementById('zoomReset');
+  // The percentage lives in its own span so updating it can't ever wipe out
+  // the hand-drawn SVG frame buildButtonFrame() injects as the button's
+  // other child (a plain zoomResetBtn.textContent write would nuke both).
+  var zoomResetLabel = zoomResetBtn && zoomResetBtn.querySelector('.zoom-pct');
 
   // ---------------- persistence ----------------
   function defaultState(){
@@ -378,7 +382,7 @@
   // ---------------- transform helpers ----------------
   function applyTransform(){
     world.style.transform = 'translate('+pan.x+'px,'+pan.y+'px) scale('+zoom+')';
-    if(zoomResetBtn) zoomResetBtn.textContent = Math.round(zoom*100);
+    if(zoomResetLabel) zoomResetLabel.textContent = Math.round(zoom*100);
   }
   function clampZoom(z){ return Math.min(2.5, Math.max(0.3, z)); }
   function screenToWorld(clientX, clientY){
