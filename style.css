@@ -1,4 +1,3 @@
-
 /* 'I Eat Crayons' isn't an actual Google Font (that request 400s), so it's
    embedded directly as a data URI — this is the only way it reliably shows
    up for everyone opening the board, regardless of network or OS. */
@@ -8,4 +7,623 @@
   font-weight:normal;
   font-style:normal;
   font-display:swap;
+}
+
+
+:root{
+  --bg:#ffffff;
+  --grid:#e6e6e2;
+  --ink:#141311;
+  --ink-soft:#6b6863;
+  --card:#ffffff;
+  --border:#141311;
+  --border-soft:#c9c7c0;
+  --accent:#c0392b;
+  --crayon:#e2572b;
+  --on-crayon:#ffffff;
+  --paper-invert-bg:#141311;
+  --paper-invert-text:#ffffff;
+  --shadow:rgba(20,19,17,.14);
+  --ring:#141311;
+  --check-a:#eeeeee;
+  --check-b:#ffffff;
+  --ui-font:'I Eat Crayons',"HanziPen TC",'Archivo',-apple-system,BlinkMacSystemFont,"PingFang TC","Heiti TC","Noto Sans TC","Noto Sans CJK TC","Microsoft JhengHei","Microsoft YaHei","WenQuanYi Micro Hei",system-ui,sans-serif;
+}
+/* The initial/default palette is always the light palette above, regardless
+   of the visitor's OS dark-mode setting — there's no in-app light/dark
+   toggle, so we intentionally don't respond to prefers-color-scheme at all.
+   :root[data-theme="dark"] below is kept inert (nothing in the app ever sets
+   a data-theme attribute) in case a future explicit toggle wants it. */
+:root[data-theme="dark"]{
+  --bg:#111110;
+  --grid:#232320;
+  --ink:#f2f0ea;
+  --ink-soft:#948f83;
+  --card:#171716;
+  --border:#f2f0ea;
+  --border-soft:#3a3833;
+  --accent:#e07a6c;
+  --crayon:#e2896f;
+  --shadow:rgba(0,0,0,.5);
+  --ring:#f2f0ea;
+  --check-a:#1c1c1a;
+  --check-b:#111110;
+}
+*{box-sizing:border-box;}
+/* Every button here draws its own hand-drawn frame — the browser's native
+   focus ring (a solid dark halo in some browsers, shown whenever a dialog's
+   primary button is auto-focused) would otherwise sit on top of that and
+   read as an out-of-place black box. Swap it for a soft crayon-colored glow
+   that still shows up for keyboard users. */
+button{ outline:none; }
+button:focus-visible{ box-shadow:0 0 0 3px color-mix(in srgb, var(--crayon) 45%, transparent); border-radius:50%; }
+.btn:focus-visible{ border-radius:20px; }
+[hidden]{ display:none !important; }
+html,body{height:100%;}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--ui-font);
+  overflow:hidden;
+}
+.app{ height:100%; display:flex; flex-direction:column; position:relative; user-select:none; -webkit-user-select:none; }
+/* Dragging a marquee-select box, a node, or a connector line can sweep the
+   mouse across the toolbar/zoom controls/help panel; without this the
+   browser text-selects whatever UI chrome the drag passes over. Inputs and
+   the note editor opt back in below since they need real text selection. */
+.modal-input{ user-select:text; -webkit-user-select:text; }
+/* Text inside a note only becomes selectable while it's actually being
+   edited — otherwise a shift-drag multi-select sweeping across several
+   notes would native-highlight their text in the browser's blue selection
+   color, on top of our own selected-state ring. */
+.node.editing .node-text .editable{ user-select:text; -webkit-user-select:text; }
+
+/* ---------- toolbar ---------- */
+.toolbar{
+  flex:none;
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:10px;
+  padding:14px 16px 20px;
+  padding-top:calc(14px + env(safe-area-inset-top,0px));
+  background:color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter:blur(6px);
+  z-index:40;
+  position:relative;
+}
+.toolbar-rule{
+  position:absolute;
+  left:0; right:0; bottom:0;
+  width:100%; height:10px;
+  overflow:visible;
+  pointer-events:none;
+}
+.toolbar-rule path{ fill:none; stroke:var(--crayon); stroke-width:2.2; opacity:.8; filter:url(#crayonA); }
+.brand{
+  font-family:var(--ui-font);
+  font-weight:400;
+  font-size:30px;
+  letter-spacing:.01em;
+  margin-right:6px;
+  white-space:nowrap;
+  color:var(--ink);
+  cursor:pointer;
+}
+.dot-btn{
+  appearance:none;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:22px; height:22px;
+  padding:0;
+  margin-left:1px;
+  border:none;
+  background:transparent;
+  cursor:pointer;
+  vertical-align:middle;
+  transform:translateY(-1px);
+}
+.dot-btn svg{ width:100%; height:100%; overflow:visible; }
+.dot-btn path{ filter:url(#crayonA); transition:fill .12s ease; }
+.dot-btn:hover path{ fill:#141311; }
+.visually-hidden{
+  position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+  overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+}
+.accentpanel{
+  position:absolute;
+  top:44px; left:14px;
+  background:var(--card);
+  border:2px solid var(--crayon);
+  border-radius:30px 12px 30px 12px/12px 30px 12px 30px;
+  padding:16px;
+  box-shadow:0 10px 26px var(--shadow);
+  z-index:50;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  min-width:170px;
+}
+.accent-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.accent-row label{
+  font-family:var(--ui-font);
+  font-size:14px;
+  color:var(--ink);
+}
+.accentpanel input[type="color"]{
+  width:30px; height:30px;
+  border:none;
+  border-radius:50%;
+  padding:0;
+  cursor:pointer;
+  background:transparent;
+  flex:none;
+}
+.accentpanel input[type="color"]::-webkit-color-swatch-wrapper{ padding:0; }
+.accentpanel input[type="color"]::-webkit-color-swatch{ border:none; border-radius:50%; }
+/* The swatch itself gets a wobbly clip-path (see wobblifySwatch), which
+   clips away any box-shadow drawn on the input directly — so the "matches
+   the background" ring is its own hand-drawn SVG outline sitting on this
+   plain, unclipped wrapper instead, colored with the current line color. */
+.swatch-wrap{ display:inline-flex; position:relative; width:30px; height:30px; }
+.swatch-ring{ position:absolute; inset:0; width:30px; height:30px; pointer-events:none; display:none; overflow:visible; }
+.swatch-wrap.swatch-outline .swatch-ring{ display:block; }
+.accentpanel-actions{ display:flex; gap:6px; margin-top:2px; }
+.accentpanel-actions .btn{ flex:1; justify-content:center; padding:6px 8px; font-size:13px; }
+.btn{
+  appearance:none;
+  position:relative;
+  isolation:isolate;
+  border:none;
+  border-radius:20px;
+  background:transparent;
+  color:var(--ink);
+  font-family:var(--ui-font);
+  font-size:15px;
+  font-weight:400;
+  letter-spacing:.01em;
+  padding:8px 15px;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  white-space:nowrap;
+  line-height:1.1;
+  transition:color .12s ease;
+}
+.btn:hover{color:var(--on-crayon);}
+.btn:active{transform:scale(.97);}
+/* The wobbly outline carries the button's own fill (matching the card
+   color), so the visible shape is always exactly the hand-drawn line —
+   never a plain rounded rect poking out past it. */
+.crayon-frame{ position:absolute; overflow:visible; pointer-events:none; z-index:-1; }
+.crayon-frame path{ fill:var(--card); stroke:var(--crayon); stroke-width:2; opacity:.9; filter:url(#crayonA); transition:fill .15s ease, stroke .15s ease, opacity .15s ease; }
+.btn:hover .crayon-frame path{ fill:var(--crayon); stroke:var(--crayon); opacity:1; }
+/* Primary (confirm) actions stay filled with the line color so they read
+   as distinct from a plain outlined Cancel — the opposite of Cancel's
+   fill/outline relationship, not a flat black invert. */
+.btn.primary{ font-weight:600; color:var(--on-crayon); }
+.btn.primary .crayon-frame path{ fill:var(--crayon); opacity:1; }
+/* --accent is just an alias for --crayon (see applyTheme), so filling with
+   it on hover was a no-op — darken the fill instead so Yes visibly reacts
+   too, not just Cancel. */
+.btn.primary:hover .crayon-frame path{ fill:color-mix(in srgb, var(--crayon) 78%, black); stroke:color-mix(in srgb, var(--crayon) 78%, black); }
+.spacer{flex:1;}
+.hint-toggle{margin-left:auto;}
+.btn.iconbtn{ width:34px; height:34px; padding:0; border-radius:50%; justify-content:center; font-size:17px; }
+input[type=file]{display:none;}
+
+/* ---------- viewport / world ---------- */
+.viewport{
+  flex:1;
+  position:relative;
+  overflow:hidden;
+  touch-action:none;
+  cursor:grab;
+  background-color:var(--bg);
+}
+.viewport.panning{cursor:grabbing;}
+.world{ position:absolute; left:0;top:0; width:0;height:0; overflow:visible; transform-origin:0 0; }
+svg.edges{ position:absolute; left:0;top:0; width:1px;height:1px; overflow:visible; pointer-events:none; }
+svg.edges path.hit{ fill:none; stroke:transparent; stroke-width:20; pointer-events:stroke; cursor:pointer; }
+svg.edges path.visible{
+  fill:none;
+  stroke:var(--crayon);
+  stroke-width:2.6;
+  stroke-linecap:round;
+  filter:url(#crayonA);
+  pointer-events:none;
+}
+svg.edges path.fuzz{
+  fill:none;
+  stroke:var(--crayon);
+  stroke-width:2.6;
+  stroke-linecap:round;
+  opacity:.4;
+  filter:url(#crayonB);
+  pointer-events:none;
+}
+svg.edges g.edge:hover path.visible{ stroke:var(--accent); }
+svg.edges g.edge:hover path.fuzz{ stroke:var(--accent); }
+svg.edges path.temp{ fill:none; stroke:var(--crayon); stroke-width:2.6; stroke-linecap:round; opacity:.85; filter:url(#crayonA); pointer-events:none; }
+
+/* ---------- hand-drawn circle frame ---------- */
+.frame{ position:relative; }
+.circle-frame{ position:absolute; overflow:visible; pointer-events:none; }
+/* Invisible hit-target the same size as the drawn circle, so hovering or
+   grabbing anywhere inside the circle (not just the tight photo/text box)
+   reveals the connector dot and lets you drag from there too. */
+.node-hit{ position:absolute; z-index:-1; }
+.circle-frame path.circle-visible{ fill:var(--card); stroke:var(--crayon); stroke-width:2.2; stroke-opacity:.85; filter:url(#crayonA); transition:stroke-width .12s ease, stroke-opacity .12s ease, fill .15s ease; }
+.node:hover .circle-frame path.circle-visible{ stroke-width:3.2; stroke-opacity:1; }
+
+.connector-handle{
+  position:absolute;
+  width:30px;height:30px;
+  transform:translate(-50%,-50%);
+  cursor:crosshair;
+  /* Sits BELOW the fixed-position Aa/delete/resize buttons (z-index 6-8):
+     this handle chases the pointer around the circle's whole edge, so
+     without this it would slide right under the cursor over one of those
+     buttons and steal the click meant for them. */
+  z-index:4;
+  display:none;
+  align-items:center;
+  justify-content:center;
+}
+.node:hover .connector-handle{ display:flex; }
+/* While actively dragging a connector line, every node's own Aa/delete/
+   resize buttons would otherwise pop up on hover and sit right where you're
+   trying to drop the line — hide them for the duration of the drag so the
+   target circle is a clean, reachable drop target. */
+.app.connecting .node .del,
+.app.connecting .node .fit-btn,
+.app.connecting .node .resize-handle{ display:none !important; }
+.connector-handle::after{
+  content:"";
+  width:13px;height:13px;
+  border-radius:50%;
+  border:1.6px solid var(--crayon);
+  background:var(--card);
+  /* Same hand-drawn wobble filter as the rest of the board's sketchy lines,
+     applied straight to this plain circle border — no separate SVG needed. */
+  filter:url(#crayonA);
+}
+.connector-handle:hover::after{ background:var(--accent); border-color:var(--accent); }
+
+.resize-handle{
+  position:absolute;
+  width:30px;height:30px;
+  transform:translate(-50%,-50%);
+  cursor:nwse-resize;
+  z-index:8;
+  display:none;
+  align-items:center;
+  justify-content:center;
+}
+.resize-handle svg{ width:18px;height:18px; overflow:visible; }
+/* The corner arrow itself gets the same hand-drawn wobble filter as the
+   board's other sketchy lines (no circle around it — just the icon). */
+.resize-handle path{ fill:none; stroke:var(--crayon); stroke-width:1.8; stroke-linecap:round; filter:url(#crayonA); }
+.node:hover .resize-handle,.node.selected .resize-handle{ display:flex; }
+
+/* ---------- nodes ---------- */
+.node{ position:absolute; left:0;top:0; cursor:grab; user-select:none; -webkit-user-select:none; }
+.node.dragging{ cursor:grabbing; z-index:30; }
+.node .del{
+  appearance:none;
+  position:absolute;
+  isolation:isolate;
+  width:19px;height:19px;
+  padding:0;
+  border:none;
+  border-radius:50%;
+  background:transparent;
+  transform:translate(-50%,-50%);
+  color:var(--ink);
+  font-size:12px;
+  line-height:1;
+  cursor:pointer;
+  display:none;
+  align-items:center;justify-content:center;
+  z-index:6;
+}
+.node .del .crayon-frame path{ fill:var(--card); stroke:var(--crayon); stroke-width:1.6; opacity:1; filter:url(#crayonA); transition:fill .12s ease, stroke .12s ease; }
+.node .del:hover{ color:#fff; }
+.node .del:hover .crayon-frame path{ fill:var(--accent); stroke:var(--accent); }
+.node:hover .del,.node.selected .del{display:flex;}
+/* Selection is shown on the circle's own hand-drawn line, not a hard box. */
+.node.selected .circle-frame path.circle-visible{ stroke:var(--accent); stroke-width:3.4; stroke-opacity:1; }
+
+.node-img .imgwrap{
+  position:relative;
+  background:var(--bg);
+}
+.node-img img{
+  display:block;
+  width:100%;height:100%;
+  object-fit:contain;
+  background-image:
+    linear-gradient(45deg,var(--check-a) 25%,transparent 25%),
+    linear-gradient(-45deg,var(--check-a) 25%,transparent 25%),
+    linear-gradient(45deg,transparent 75%,var(--check-a) 75%),
+    linear-gradient(-45deg,transparent 75%,var(--check-a) 75%);
+  background-color:var(--check-b);
+  background-size:12px 12px;
+  background-position:0 0,0 6px,6px -6px,-6px 0;
+}
+.node-text .editable{
+  position:relative;
+  box-sizing:border-box;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  padding:18px 20px;
+  outline:none;
+  font-family:var(--ui-font);
+  font-size:21px;
+  line-height:1.35;
+  color:var(--ink);
+  white-space:pre-wrap;
+  word-break:break-word;
+}
+.editable:empty:before{ content:attr(data-placeholder); color:var(--ink-soft); }
+.fit-btn{
+  appearance:none;
+  position:absolute;
+  isolation:isolate;
+  transform:translate(-50%,-50%);
+  width:26px;height:26px;
+  padding:0;
+  border:none;
+  border-radius:50%;
+  background:transparent;
+  color:var(--ink);
+  font-family:var(--ui-font);
+  font-size:12px;
+  line-height:1;
+  cursor:pointer;
+  display:none;
+  align-items:center;justify-content:center;
+  z-index:6;
+}
+.fit-btn .crayon-frame path{ fill:var(--card); stroke:var(--crayon); stroke-width:1.6; opacity:1; filter:url(#crayonA); transition:fill .12s ease, stroke .12s ease; }
+.node:hover .fit-btn,.node.selected .fit-btn{display:flex;}
+.fit-btn:hover{ color:#fff; }
+.fit-btn:hover .crayon-frame path{ fill:var(--accent); stroke:var(--accent); }
+.fit-btn.active{ color:#fff; }
+.fit-btn.active .crayon-frame path{ fill:var(--crayon); stroke:var(--crayon); }
+
+/* crop tool */
+.cropoverlay{
+  position:absolute;
+  inset:0;
+  overflow:hidden;
+  z-index:5;
+  cursor:default;
+  touch-action:none;
+}
+.crop-rect{
+  position:absolute;
+  border:2px solid var(--crayon);
+  box-shadow:0 0 0 2000px rgba(20,19,17,.55);
+  cursor:move;
+  touch-action:none;
+}
+.crop-handle{
+  position:absolute;
+  width:14px; height:14px;
+  margin:-8px;
+  border-radius:50%;
+  background:var(--crayon);
+  border:2px solid #fff;
+  touch-action:none;
+}
+.crop-handle.nw{ left:0; top:0; cursor:nwse-resize; }
+.crop-handle.se{ left:100%; top:100%; cursor:nwse-resize; }
+.crop-handle.ne{ left:100%; top:0; cursor:nesw-resize; }
+.crop-handle.sw{ left:0; top:100%; cursor:nesw-resize; }
+.croprow{ display:flex; gap:6px; margin-top:8px; }
+.croprow .btn{ flex:1; justify-content:center; padding:6px 8px; font-size:13px; }
+
+/* ---------- zoom controls ---------- */
+.zoomctl{
+  position:absolute;
+  right:16px;
+  bottom:calc(16px + env(safe-area-inset-bottom,0px));
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  z-index:30;
+}
+.zoomctl button{
+  position:relative;
+  isolation:isolate;
+  width:34px;height:34px;
+  border-radius:50%;
+  border:none;
+  background:transparent;
+  color:var(--ink);
+  font-family:var(--ui-font);
+  font-size:16px;
+  cursor:pointer;
+}
+.zoomctl button:hover{ color:var(--on-crayon); }
+.zoomctl button:active{ transform:scale(.94); }
+.zoomctl button .crayon-frame path{ fill:var(--card); stroke:var(--crayon); }
+.zoomctl button:hover .crayon-frame path{ fill:var(--crayon); stroke:var(--crayon); opacity:1; }
+
+/* ---------- help panel ---------- */
+.help{
+  position:absolute;
+  top:64px; right:14px;
+  width:min(270px, calc(100vw - 28px));
+  max-height:calc(100% - 84px);
+  overflow-y:auto;
+  background:var(--card);
+  border:2px solid var(--crayon);
+  border-radius:30px 12px 30px 12px/12px 30px 12px 30px;
+  padding:18px;
+  box-shadow:0 10px 26px var(--shadow);
+  z-index:50;
+  font-size:14px;
+  line-height:1.5;
+}
+.help h3{
+  margin:0 0 8px;
+  font-family:var(--ui-font);
+  font-size:20px;
+  font-weight:400;
+}
+.help ul{ margin:0; padding-left:0; list-style:none; }
+.help li{ padding-left:14px; position:relative; margin-bottom:5px; }
+.help li:before{ content:"-"; position:absolute; left:0; color:var(--ink-soft); }
+.help .close{
+  position:absolute; top:10px; right:14px;
+  border:none; background:none; cursor:pointer;
+  font-size:18px; color:var(--ink-soft);
+}
+
+/* ---------- toast ---------- */
+.toast{
+  position:absolute;
+  left:50%; bottom:calc(20px + env(safe-area-inset-bottom,0px));
+  transform:translate(-50%,20px);
+  isolation:isolate;
+  color:var(--on-crayon);
+  padding:9px 18px;
+  font-family:var(--ui-font);
+  font-size:15px;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .25s ease, transform .25s ease;
+  z-index:60;
+  max-width:min(80vw,340px);
+  text-align:center;
+}
+.toast .crayon-frame path{ fill:var(--crayon); stroke:var(--crayon); opacity:1; }
+.toast.show{ opacity:1; transform:translate(-50%,0); }
+
+/* ---------- board tabs panel ---------- */
+.boardpanel{
+  position:absolute;
+  top:44px; left:14px;
+  background:var(--card);
+  border:2px solid var(--crayon);
+  border-radius:26px 10px 26px 10px/10px 26px 10px 26px;
+  padding:14px;
+  box-shadow:0 10px 26px var(--shadow);
+  z-index:50;
+  min-width:190px;
+  max-width:min(260px, calc(100vw - 28px));
+}
+.boardlist{ display:flex; flex-direction:column; gap:4px; max-height:240px; overflow-y:auto; margin-bottom:10px; }
+.boardrow{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 8px; border-radius:12px; cursor:grab; }
+.boardrow:hover{ background:color-mix(in srgb, var(--crayon) 16%, transparent); }
+.boardrow.active .boardname{ color:var(--accent); }
+.boardrow.dragging{ opacity:.4; }
+.boardrow.drop-before{ box-shadow:inset 0 2px 0 var(--crayon); }
+.boardrow.drop-after{ box-shadow:inset 0 -2px 0 var(--crayon); }
+.boardname{ font-family:var(--ui-font); font-size:15px; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; }
+.boarddel{ border:none; background:transparent; color:var(--ink-soft); cursor:pointer; line-height:1; padding:2px 4px; flex:none; display:inline-flex; align-items:center; justify-content:center; }
+.boarddel svg{ display:block; }
+.boarddel:hover{ color:var(--accent); }
+.boardadd{ width:100%; justify-content:center; }
+
+/* ---------- modal dialogs (confirm / rename) ---------- */
+.modal-overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(20,19,17,.45);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:100;
+  padding:20px;
+}
+.modal-box{
+  background:var(--card);
+  border:2px solid var(--crayon);
+  border-radius:30px 12px 30px 12px/12px 30px 12px 30px;
+  padding:22px;
+  box-shadow:0 14px 34px var(--shadow);
+  max-width:min(320px, calc(100vw - 40px));
+  width:100%;
+}
+.modal-msg{
+  margin:0 0 16px;
+  font-family:var(--ui-font);
+  font-size:16px;
+  line-height:1.5;
+  color:var(--ink);
+}
+.modal-input{
+  width:100%;
+  box-sizing:border-box;
+  padding:9px 12px;
+  margin-bottom:16px;
+  border:1.6px solid var(--border-soft);
+  border-radius:12px;
+  background:var(--card);
+  color:var(--ink);
+  font-family:var(--ui-font);
+  font-size:15px;
+  outline:none;
+}
+.modal-input:focus{ border-color:var(--crayon); }
+.modal-row{ display:flex; gap:8px; justify-content:flex-end; }
+.modal-row .btn{ padding:7px 16px; }
+.modal-box-wide{ max-width:min(380px, calc(100vw - 40px)); }
+/* The Clear-all / Delete-board Yes-or-no dialogs specifically read as sitting
+   "on the canvas" rather than as another card, so they use the paper color
+   instead of the card color every other modal (rename, welcome) uses. */
+.modal-confirm{ background:var(--bg); }
+/* Every modal's primary button (Rename's Save included) hovers with the
+   same clean black-on-white/white-on-black flip (against that dialog's own
+   background) rather than just darkening toward the line color, so they
+   all read the same "pressed" way. */
+.modal-box .btn.primary:hover .crayon-frame path{ fill:var(--paper-invert-bg); stroke:var(--paper-invert-bg); }
+.modal-box .btn.primary:hover{ color:var(--paper-invert-text); }
+.welcome-list{
+  margin:0 0 18px;
+  padding-left:0;
+  list-style:none;
+  max-height:50vh;
+  overflow-y:auto;
+  font-family:var(--ui-font);
+  font-size:14px;
+  line-height:1.5;
+  color:var(--ink);
+}
+.welcome-list li{ padding-left:14px; position:relative; margin-bottom:5px; }
+.welcome-list li:before{ content:"-"; position:absolute; left:0; color:var(--ink-soft); }
+
+/* ---------- marquee select ---------- */
+.marquee{
+  position:absolute;
+  pointer-events:none;
+  z-index:25;
+  overflow:visible;
+}
+.marquee svg{ position:absolute; left:0; top:0; overflow:visible; }
+.marquee path{
+  fill:color-mix(in srgb, var(--crayon) 12%, transparent);
+  stroke:var(--crayon);
+  stroke-width:1.6;
+  stroke-dasharray:5 4;
+  filter:url(#crayonA);
+}
+
+@media (max-width:480px){
+  .brand{display:none;}
+  .btn{padding:7px 11px; font-size:13px;}
 }

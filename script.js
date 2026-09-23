@@ -1,4 +1,3 @@
-
 (function(){
   "use strict";
 
@@ -44,7 +43,7 @@
   function defaultState(){
     return {
       nodes:[
-        {id:'n1', type:'text', x:60, y:70, text:'STYLE WITH THE INTENT TO...\n\nDrop images here, or press "Add Images"'},
+        {id:'n1', type:'text', x:60, y:70, text:'STYLE WITH THE INTENT TO...\n\nDrop images here, or press "Add Image"'},
         {id:'n2', type:'text', x:310, y:160, text:'Hover a circle, then drag the little dot that appears onto another circle to draw a line'},
         {id:'n3', type:'text', x:130, y:330, text:'Press "Crop" under a photo to trim it down to just the part you want'}
       ],
@@ -537,10 +536,15 @@
     if(!s){ s = []; for(var i=0;i<10;i++) s.push(Math.random()*2-1); btnSeeds.set(el, s); }
     return s;
   }
-  function buildButtonFrame(el){
+  function buildButtonFrame(el, forcedSize){
     var old = el.querySelector('svg.crayon-frame');
     if(old) old.remove();
-    var w = el.offsetWidth, h = el.offsetHeight;
+    // Aa / delete / resize only ever show on hover (display:none the rest
+    // of the time), so offsetWidth/Height would read 0 whenever this runs
+    // at node-build time — forcedSize passes their real CSS box size
+    // instead of relying on a measurement that display:none would zero out.
+    var w = forcedSize ? forcedSize.w : el.offsetWidth;
+    var h = forcedSize ? forcedSize.h : el.offsetHeight;
     if(!w || !h) return;
     var pad = 5;
     var svgW = w + pad*2, svgH = h + pad*2;
@@ -558,7 +562,7 @@
     el.appendChild(svgEl);
   }
   function refreshButtonFrames(){
-    document.querySelectorAll('.btn, .zoomctl button').forEach(buildButtonFrame);
+    document.querySelectorAll('.btn, .zoomctl button').forEach(function(el){ buildButtonFrame(el); });
   }
 
   function buildNodeEl(n){
@@ -602,6 +606,11 @@
     delEl.style.left = delPt.x + 'px';
     delEl.style.top = delPt.y + 'px';
     el.appendChild(delEl);
+    // Reuse the node's own wobble seed (stable across re-renders, unlike a
+    // fresh WeakMap entry keyed to this render's disposable button element)
+    // so Aa/x/resize don't redraw with a new random wiggle on every render.
+    btnSeeds.set(delEl, wobble);
+    buildButtonFrame(delEl, {w:19, h:19});
 
     var resizeEl = document.createElement('span');
     resizeEl.className = 'resize-handle';
@@ -720,6 +729,8 @@
         saveState(); render();
       });
       el.appendChild(fitBtn);
+      btnSeeds.set(fitBtn, wobble);
+      buildButtonFrame(fitBtn, {w:26, h:26});
       // Pointer capture from drag-tracking (below) retargets the native
       // dblclick to the outer node element rather than the editable div
       // itself, so this listens here instead of on `editable`.
@@ -773,7 +784,29 @@
     delEl.addEventListener('pointerdown', function(e){ e.stopPropagation(); });
     delEl.addEventListener('click', function(e){ e.stopPropagation(); deleteNode(n.id); });
     resizeEl.addEventListener('pointerdown', function(e){ startResize(e, n.id, el); });
-    el.addEventListener('pointerdown', function(e){ startNodeDrag(e, n.id, el); });
+    el.addEventListener('pointerdown', function(e){
+      // Grabbing right on the circle's own hand-drawn line starts a
+      // connector straight from there, instead of needing to land exactly
+      // on the small dot that chases the cursor around the edge — well
+      // inside the line (the content itself) still drags the whole node,
+      // so the two don't fight over the same click.
+      if(!e.shiftKey && cropNodeId !== n.id && (e.button === undefined || e.button === 0) && !el.classList.contains('editing')){
+        var wp = screenToWorld(e.clientX, e.clientY);
+        var s = n.scale || 1;
+        var lx = (wp.x - n.x) / s, ly = (wp.y - n.y) / s;
+        var ddx = lx - geom.cx, ddy = ly - geom.cy;
+        if(ddx || ddy){
+          var ang = Math.atan2(ddy, ddx);
+          var edgePt = pointOnWobblyEllipse(geom, wobble, ang);
+          if(Math.hypot(lx - edgePt.x, ly - edgePt.y) < 13){
+            e.stopPropagation();
+            startConnect(e, n.id);
+            return;
+          }
+        }
+      }
+      startNodeDrag(e, n.id, el);
+    });
 
     return el;
   }
@@ -1607,13 +1640,6 @@
       closeAccentPanel();
     }
   });
-  if(window.matchMedia){
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(){
-      var th = currentTheme();
-      if(!(th.crayon || th.accent)) refreshAccentDot();
-    });
-  }
-
   // ---------------- board tabs panel ----------------
   var brandLabel = document.getElementById('brandLabel');
   function closeBoardPanel(){

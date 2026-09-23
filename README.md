@@ -1,28 +1,26 @@
 # Mood Board
 
-A pan/zoom infinite canvas for dropping images and text notes, connecting
-them with hand-drawn "crayon" style lines.
+A hand-drawn, "crayon"-style infinite-canvas mood board — pan, zoom, drag in images, add sticky notes, and connect them with sketchy lines.
 
 ## Files
+
 - `index.html` — page markup
-- `style.css` — all styles (including the embedded "I Eat Crayons" handwritten font, so it works for every visitor with no extra setup)
-- `script.js` — all behavior
+- `style.css` — all styling (hand-drawn crayon look, layout, themes)
+- `script.js` — all app behavior (canvas, notes, images, connectors, boards, local save/load)
 
-## Run locally
-Just open `index.html` in a browser, or serve the folder with any static
-server, e.g.:
+## Running locally
 
-    npx serve .
+Just open `index.html` in a browser, or serve the folder with any static file server:
 
-## Deploy
-This is a static site — any static host works. Two common options:
+```
+npx serve .
+```
 
-**Vercel (recommended, free):**
-1. Push this folder to a GitHub repo.
-2. Go to vercel.com → "Add New Project" → import that repo.
-3. Leave all build settings blank (no framework, no build command) — Vercel
-   will serve the files as-is. Deploy.
+## Deploying
 
-**GitHub Pages:**
-1. Push this folder to a GitHub repo.
-2. Repo Settings → Pages → Source: deploy from branch → main → `/ (root)`.
+This folder is a plain static site — deploy it as-is to Vercel, Netlify, GitHub Pages, or any static host. No build step required.
+
+## Notes
+
+- Everything is saved to the browser's local storage automatically — no backend.
+- The default color palette is always the light palette, regardless of the visitor's OS light/dark setting.
