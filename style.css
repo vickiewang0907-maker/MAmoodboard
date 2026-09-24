@@ -58,6 +58,12 @@
 button{ outline:none; }
 button:focus-visible{ box-shadow:0 0 0 3px color-mix(in srgb, var(--crayon) 45%, transparent); border-radius:50%; }
 .btn:focus-visible{ border-radius:20px; }
+/* Yes/OK/Save (a modal's primary button) is auto-focused as soon as the
+   dialog opens — that's not a real keyboard-navigation moment, so the glow
+   above showed up as an unwanted halo around it on every single dialog.
+   Its own solid crayon fill already reads clearly as "the button", so it
+   doesn't need the extra ring the way an outline-only button does. */
+.btn.primary:focus-visible{ box-shadow:none; }
 [hidden]{ display:none !important; }
 html,body{height:100%;}
 body{
