@@ -7,7 +7,7 @@
   var HOWTO_ITEMS = [
     'Add images, paste, or double-click empty space for a note',
     'Drag a circle to move it, its corner to resize, or its edge dot onto another circle to connect them',
-    'Select an image, then "Crop" to trim it; select a note, then "Aa" to fill the circle with text',
+    'Double-click a photo to crop it; select a note, then "Aa" to fill the circle with text',
     'Shift-click, shift-drag, or double-click and drag empty space, to select several circles at once',
     'Delete removes a selection, Ctrl+C/V copies, Ctrl+Z undoes, click a string to remove it',
     'Click "Mood Board" for boards and the accent dot for color',
@@ -16,13 +16,18 @@
   var IMG_W = 190, IMG_MIN_H = 120, IMG_MAX_H = 260;
 
   var state = null;
-  var pan = {x:0,y:0}, zoom = 1;
+  var pan = {x:0,y:0}, zoom = defaultZoomForViewport();
   var selectedNodeId = null;
   var selectedIds = [];
   var cropNodeId = null;
   var cropRect = null;
   var currentBoardId = null;
   var boardPanelEl = null;
+  // Board-list scroll-indicator wobble: chosen once per app session and kept
+  // here (not on the scrollEl DOM node, which is torn down and rebuilt every
+  // time the board panel re-renders — e.g. every time a board is added) so
+  // the line's shape stays the same instead of re-randomizing itself each time.
+  var scrollWobbleSeed = null;
   var nodeEls = {};
   var edgeEls = {};
 
@@ -45,7 +50,7 @@
       nodes:[
         {id:'n1', type:'text', x:60, y:70, text:'STYLE WITH THE INTENT TO...\n\nDrop images here, or press "Add Image"'},
         {id:'n2', type:'text', x:310, y:160, text:'Hover a circle, then drag the little dot that appears onto another circle to draw a line'},
-        {id:'n3', type:'text', x:130, y:330, text:'Press "Crop" under a photo to trim it down to just the part you want'}
+        {id:'n3', type:'text', x:130, y:330, text:'Double-click a photo to crop it down to just the part you want'}
       ],
       edges:[
         {id:'e1', a:'n1', b:'n2'},
@@ -139,7 +144,7 @@
   function resetViewForBoardSwitch(){
     selectedIds = []; selectedNodeId = null; cropNodeId = null; cropRect = null;
     applyTheme();
-    pan = {x:0,y:0}; zoom = 1;
+    pan = {x:0,y:0}; zoom = defaultZoomForViewport();
     applyTransform();
     render();
     refreshAccentDot();
@@ -384,6 +389,16 @@
     if(zoomResetLabel) zoomResetLabel.textContent = Math.round(zoom*100);
   }
   function clampZoom(z){ return Math.min(2.5, Math.max(0.3, z)); }
+  // Node/circle sizes are fixed CSS pixels, so the same literal zoom value
+  // covers proportionally more of a narrow phone screen than a wide desktop
+  // window — start narrower viewports a bit more zoomed out so 100% doesn't
+  // read as "too big" on mobile while leaving desktop's 100% untouched.
+  function defaultZoomForViewport(){
+    var w = window.innerWidth;
+    if(w <= 480) return 0.62;
+    if(w <= 700) return 0.8;
+    return 1;
+  }
   function screenToWorld(clientX, clientY){
     var r = viewport.getBoundingClientRect();
     return { x:(clientX - r.left - pan.x)/zoom, y:(clientY - r.top - pan.y)/zoom };
@@ -610,12 +625,16 @@
     // fresh WeakMap entry keyed to this render's disposable button element)
     // so Aa/x/resize don't redraw with a new random wiggle on every render.
     btnSeeds.set(delEl, wobble);
-    buildButtonFrame(delEl, {w:19, h:19});
+    buildButtonFrame(delEl, {w:25, h:25});
 
     var resizeEl = document.createElement('span');
     resizeEl.className = 'resize-handle';
     resizeEl.title = 'Drag to resize';
-    resizeEl.innerHTML = '<svg viewBox="0 0 16 16"><path d="M3 13 L13 3 M7 13 H13 V7"/></svg>';
+    // Same diagonal + corner-bracket silhouette as before (not a new
+    // shape), just drawn with a gentle hand-drawn curve instead of stiff
+    // straight/right-angle lines -- reads as softer and more "wobbly cute"
+    // while still clearly the same resize cue.
+    resizeEl.innerHTML = '<svg viewBox="0 0 16 16"><path d="M3.3 12.8 Q7.5 9.3 12.8 3.3 M7 12.9 Q10.8 13.4 13 12.9 Q13.5 10 12.9 7"/></svg>';
     var resizePt = pointOnWobblyEllipse(geom, wobble, ANGLE_BOTTOM_RIGHT);
     resizeEl.style.left = (resizePt.x + Math.cos(ANGLE_BOTTOM_RIGHT)*12) + 'px';
     resizeEl.style.top = (resizePt.y + Math.sin(ANGLE_BOTTOM_RIGHT)*12) + 'px';
@@ -726,11 +745,21 @@
       fitBtn.addEventListener('click', function(e){
         e.stopPropagation();
         n.bigText = !n.bigText;
-        saveState(); render();
+        // Update this button and the text size in place instead of calling
+        // render() — render() would throw away and rebuild this very button
+        // while the cursor is still sitting on it, so the browser has to
+        // recompute :hover on the brand-new element and the fill briefly
+        // flashes back to hollow before the hover style re-applies. Nothing
+        // else about the node's size or layout depends on bigText, so a
+        // full re-render was never needed for this toggle.
+        fitBtn.classList.toggle('active', n.bigText);
+        fitBtn.title = n.bigText ? 'Use normal text size' : 'Fill the circle';
+        editable.style.fontSize = n.bigText ? (fitFontSize(n.text || placeholderText, contentW, contentH) + 'px') : '';
+        saveState();
       });
       el.appendChild(fitBtn);
       btnSeeds.set(fitBtn, wobble);
-      buildButtonFrame(fitBtn, {w:26, h:26});
+      buildButtonFrame(fitBtn, {w:25, h:25});
       // Pointer capture from drag-tracking (below) retargets the native
       // dblclick to the outer node element rather than the editable div
       // itself, so this listens here instead of on `editable`.
@@ -898,7 +927,9 @@
     row.addEventListener('pointerdown', function(e){ e.stopPropagation(); });
 
     var applyBtn = document.createElement('button');
-    applyBtn.className = 'btn';
+    // "crop-apply" also gives the global Enter-key handler below a fixed
+    // hook to find this button by, independent of where it sits in the row.
+    applyBtn.className = 'btn primary crop-apply';
     applyBtn.type = 'button';
     applyBtn.textContent = 'Apply';
     applyBtn.addEventListener('click', function(e){
@@ -941,9 +972,12 @@
       render();
     });
 
-    row.appendChild(applyBtn);
+    // Reset and Close (the two "lesser" actions) come first, Apply (the
+    // action that actually confirms the crop) sits on the right, matching
+    // where a confirm button sits in every other dialog in the app.
     row.appendChild(resetBtn);
     row.appendChild(closeBtn);
+    row.appendChild(applyBtn);
     return row;
   }
 
@@ -1329,7 +1363,43 @@
   var lastEmptyDown = null;
   var dblDragCtx = null;
   var suppressDblClick = false;
+  // ---------------- two-finger pinch-to-zoom ----------------
+  // Tracked independently of panCtx/marqueeCtx/dblDragCtx: as soon as a
+  // second touch point lands anywhere on the viewport, whatever gesture the
+  // first finger started is cancelled and the two fingers drive zoom+pan
+  // instead, anchored so the point between them stays under them.
+  var touchPoints = {};
+  var pinchCtx = null;
+  function pinchDistance(){
+    var ids = Object.keys(touchPoints);
+    if(ids.length < 2) return null;
+    var a = touchPoints[ids[0]], b = touchPoints[ids[1]];
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  }
+  function pinchMidpoint(){
+    var ids = Object.keys(touchPoints);
+    var a = touchPoints[ids[0]], b = touchPoints[ids[1]];
+    return { x:(a.x + b.x)/2, y:(a.y + b.y)/2 };
+  }
   viewport.addEventListener('pointerdown', function(e){
+    if(e.pointerType === 'touch'){
+      touchPoints[e.pointerId] = { x:e.clientX, y:e.clientY };
+      var touchCount = Object.keys(touchPoints).length;
+      if(touchCount === 2){
+        panCtx = null; marqueeCtx = null; dblDragCtx = null; lastEmptyDown = null;
+        viewport.classList.remove('panning');
+        var r0 = viewport.getBoundingClientRect();
+        var mid0 = pinchMidpoint();
+        pinchCtx = {
+          startDist: pinchDistance(),
+          startZoom: zoom,
+          startWorld: { x:(mid0.x - r0.left - pan.x)/zoom, y:(mid0.y - r0.top - pan.y)/zoom }
+        };
+        return;
+      }
+      if(touchCount > 2) return;
+    }
+    if(pinchCtx) return;
     if(e.target !== viewport && e.target !== world && e.target !== svg && e.target !== nodesLayer) return;
     if(e.shiftKey){
       startMarquee(e);
@@ -1350,6 +1420,21 @@
     viewport.classList.add('panning');
   });
   viewport.addEventListener('pointermove', function(e){
+    if(e.pointerType === 'touch' && touchPoints[e.pointerId]){
+      touchPoints[e.pointerId] = { x:e.clientX, y:e.clientY };
+    }
+    if(pinchCtx){
+      var dist = pinchDistance();
+      if(dist && pinchCtx.startDist){
+        var r = viewport.getBoundingClientRect();
+        var mid = pinchMidpoint();
+        zoom = clampZoom(pinchCtx.startZoom * (dist / pinchCtx.startDist));
+        pan.x = (mid.x - r.left) - pinchCtx.startWorld.x*zoom;
+        pan.y = (mid.y - r.top) - pinchCtx.startWorld.y*zoom;
+        applyTransform();
+      }
+      return;
+    }
     if(dblDragCtx){
       var dx = e.clientX - dblDragCtx.startClientX, dy = e.clientY - dblDragCtx.startClientY;
       if(!dblDragCtx.active && Math.hypot(dx,dy) > 4){
@@ -1367,6 +1452,13 @@
     applyTransform();
   });
   function endPan(e){
+    if(e.pointerType === 'touch'){
+      delete touchPoints[e.pointerId];
+      if(pinchCtx){
+        if(Object.keys(touchPoints).length < 2) pinchCtx = null;
+        return;
+      }
+    }
     if(dblDragCtx){
       var wasActive = dblDragCtx.active;
       dblDragCtx = null;
@@ -1402,7 +1494,7 @@
 
   document.getElementById('zoomIn').addEventListener('click', function(){ zoom = clampZoom(zoom*1.2); applyTransform(); });
   document.getElementById('zoomOut').addEventListener('click', function(){ zoom = clampZoom(zoom/1.2); applyTransform(); });
-  document.getElementById('zoomReset').addEventListener('click', function(){ zoom = 1; pan = {x:0,y:0}; applyTransform(); });
+  document.getElementById('zoomReset').addEventListener('click', function(){ zoom = defaultZoomForViewport(); pan = {x:0,y:0}; applyTransform(); });
 
   var fileInput = document.getElementById('fileInput');
   fileInput.addEventListener('change', function(){
@@ -1482,6 +1574,14 @@
     var editing = !!(ae && (ae.isContentEditable || ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA'));
     var mod = e.ctrlKey || e.metaKey;
 
+    // While the crop tool is open, Enter confirms it (same as clicking
+    // Apply) instead of doing nothing — matches Enter-to-confirm everywhere
+    // else in the app (rename/prompt dialogs).
+    if(e.key === 'Enter' && !editing && cropNodeId){
+      var applyBtn = document.querySelector('.crop-apply');
+      if(applyBtn){ e.preventDefault(); applyBtn.click(); }
+      return;
+    }
     if(mod && !editing && (e.key === 'z' || e.key === 'Z')){
       e.preventDefault();
       undo();
@@ -1729,7 +1829,122 @@
       });
       list.appendChild(row);
     });
-    boardPanelEl.appendChild(list);
+    // Hand-drawn scroll indicator — a genuinely wobbly vertical line (not a
+    // rounded rectangle pretending to be one) that sits in its own column
+    // clear of the boardlist's own content, so it never crowds the delete
+    // (x) button at the row's edge. A darker, thicker segment of the same
+    // line marks the visible portion, like a bookmark ribbon.
+    var listWrap = document.createElement('div');
+    listWrap.className = 'boardlist-row';
+    listWrap.appendChild(list);
+    var scrollEl = document.createElement('div');
+    scrollEl.className = 'boardscroll';
+    var svgNS = 'http://www.w3.org/2000/svg';
+    var scrollSvg = document.createElementNS(svgNS,'svg');
+    scrollSvg.setAttribute('preserveAspectRatio','none');
+    var trackPath = document.createElementNS(svgNS,'path');
+    trackPath.setAttribute('class','boardscroll-track');
+    // A fainter duplicate of the thumb, offset by its own random crayon
+    // turbulence (crayonB, same as svg.edges path.fuzz), sitting right under
+    // the crisper crayonA-filtered thumb on top — the same two-layer trick
+    // the circle-connecting lines use for their sketchy ink texture.
+    var fuzzPath = document.createElementNS(svgNS,'path');
+    fuzzPath.setAttribute('class','boardscroll-thumb-fuzz');
+    var thumbPath = document.createElementNS(svgNS,'path');
+    thumbPath.setAttribute('class','boardscroll-thumb');
+    scrollSvg.appendChild(trackPath);
+    scrollSvg.appendChild(fuzzPath);
+    scrollSvg.appendChild(thumbPath);
+    scrollEl.appendChild(scrollSvg);
+    listWrap.appendChild(scrollEl);
+    boardPanelEl.appendChild(listWrap);
+
+    // A one-off random wobble (not a repeating wave) gives the line's overall
+    // curvature: a handful of random offsets planted at fixed intervals down
+    // the full column, smoothstep-interpolated between them for a smooth-but-
+    // irregular drift, then curved through with quadratic Beziers. The crayon
+    // displacement filter (applied in CSS) roughs the edge up on top of that,
+    // matching how the circle-connecting lines are a smooth bezier UNDER a
+    // turbulence filter. Track and thumb both read the SAME offsets keyed to
+    // absolute y, so the thumb's curve always lines up with the track
+    // underneath it, and because the offsets are random (not periodic) the
+    // line never visibly repeats itself the way a sine wave does.
+    function waveX(y, midX, amp, offsets, step){
+      var i = Math.floor(y / step);
+      var t = (y - i*step) / step;
+      var a = offsets[i] != null ? offsets[i] : 0;
+      var b = offsets[i+1] != null ? offsets[i+1] : a;
+      var s = t*t*(3 - 2*t); // smoothstep
+      return midX + (a + (b - a)*s) * amp;
+    }
+    function wavyVerticalPath(y0, y1, midX, amp, offsets, step){
+      var span = y1 - y0;
+      var steps = Math.max(6, Math.round(span / 6));
+      var pts = [];
+      for(var i=0;i<=steps;i++){
+        var t = i/steps;
+        var y = y0 + span*t;
+        pts.push([waveX(y, midX, amp, offsets, step), y]);
+      }
+      var d = 'M '+pts[0][0]+' '+pts[0][1]+' ';
+      for(var i=0;i<pts.length-1;i++){
+        var cur = pts[i], nxt = pts[i+1];
+        var mx = (cur[0]+nxt[0])/2, my = (cur[1]+nxt[1])/2;
+        d += 'Q '+cur[0]+' '+cur[1]+' '+mx+' '+my+' ';
+      }
+      d += 'L '+pts[pts.length-1][0]+' '+pts[pts.length-1][1]+' ';
+      return d;
+    }
+    function updateScrollIndicator(){
+      var h = list.clientHeight, sh = list.scrollHeight;
+      var w = 13, pad = 4, midX = w/2;
+      scrollSvg.setAttribute('width', w);
+      scrollSvg.setAttribute('height', h);
+      scrollSvg.setAttribute('viewBox', '0 0 '+w+' '+h);
+      // The wobble's swing is allowed to run past this narrow viewBox on
+      // either side without clipping — overflow:visible on the <svg> (and no
+      // clipping ancestor) lets it draw into the column's own side margins.
+      if(scrollWobbleSeed == null){
+        // A few broad, clearly-visible bends rather than a fine jitter —
+        // real pen tremor reads at this scale as a handful of lazy curves,
+        // not a tight scribble. Chosen once per app session (kept on the
+        // module-level scrollWobbleSeed, not this disposable scrollEl node,
+        // which is rebuilt on every board-panel re-render) so the same line
+        // shape is reused every time — adding a board or switching boards
+        // doesn't redraw it with a new random wiggle.
+        var amp0 = 4.5 + Math.random()*2.5;
+        var step0 = 46 + Math.random()*18;
+        // Enough offsets to cover any plausible list height (well past what
+        // 240px max-height plus overflow could ever need).
+        var count = Math.ceil(2000 / step0) + 2;
+        var offsets0 = [];
+        for(var i=0;i<count;i++) offsets0.push(Math.random()*2 - 1);
+        scrollWobbleSeed = { amp: amp0, step: step0, offsets: offsets0 };
+      }
+      var amp = scrollWobbleSeed.amp, step = scrollWobbleSeed.step, offsets = scrollWobbleSeed.offsets;
+      // The full-length guide line is always drawn — even when this board's
+      // list is too short to scroll — so the column next to the delete (x)
+      // button never reads as an empty gap; only the darker "visible
+      // portion" segment on top of it appears/disappears with scrollability.
+      trackPath.setAttribute('d', wavyVerticalPath(pad, h-pad, midX, amp, offsets, step));
+      if(sh <= h + 1){
+        thumbPath.style.display = 'none';
+        fuzzPath.style.display = 'none';
+        return;
+      }
+      thumbPath.style.display = '';
+      fuzzPath.style.display = '';
+      var innerH = h - pad*2;
+      var y0 = pad + innerH * (list.scrollTop / sh);
+      var y1 = pad + innerH * ((list.scrollTop + h) / sh);
+      if(y1 - y0 < 12){ var mid=(y0+y1)/2; y0 = mid-6; y1 = mid+6; }
+      var thumbD = wavyVerticalPath(y0, y1, midX, amp, offsets, step);
+      thumbPath.setAttribute('d', thumbD);
+      fuzzPath.setAttribute('d', thumbD);
+    }
+    list.addEventListener('scroll', updateScrollIndicator);
+    requestAnimationFrame(updateScrollIndicator);
+
     var addBtn = document.createElement('button');
     addBtn.className = 'btn boardadd';
     addBtn.type = 'button';

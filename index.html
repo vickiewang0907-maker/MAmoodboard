@@ -13,11 +13,13 @@
         <button class="btn" id="accentReset" type="button">Reset</button>
       </div>
     </div>
-    <label class="btn" for="fileInput"><span class="label">Add Image</span></label>
-    <input id="fileInput" type="file" accept="image/*" multiple>
-    <button class="btn" id="addTextBtn"><span class="label">Add Note</span></button>
-    <button class="btn" id="clearBtn"><span class="label">Clear All</span></button>
-    <button class="btn iconbtn hint-toggle" id="helpBtn" title="Help" aria-label="Help">?</button>
+    <div class="toolbar-actions">
+      <label class="btn" for="fileInput"><span class="label">Add Image</span></label>
+      <input id="fileInput" type="file" accept="image/*" multiple>
+      <button class="btn" id="addTextBtn"><span class="label">Add Note</span></button>
+      <button class="btn" id="clearBtn"><span class="label">Clear All</span></button>
+      <button class="btn iconbtn hint-toggle" id="helpBtn" title="Help" aria-label="Help">?</button>
+    </div>
     <svg class="toolbar-rule" preserveAspectRatio="none" viewBox="0 0 1000 10">
       <path d="M0 5 Q120 2 260 6 T520 4 Q680 7 820 3 T1000 5"/>
     </svg>
@@ -32,6 +34,26 @@
             <feDisplacementMap in="SourceGraphic" in2="n" scale="3.2" xChannelSelector="R" yChannelSelector="G"/>
           </filter>
           <filter id="crayonB" x="-30%" y="-30%" width="160%" height="160%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.07 0.14" numOctaves="2" seed="11" result="n"/>
+            <feDisplacementMap in="SourceGraphic" in2="n" scale="4.5" xChannelSelector="R" yChannelSelector="G"/>
+          </filter>
+          <!-- Same two filters, but with a region set in absolute/viewport
+               units (filterUnits=userSpaceOnUse) instead of a percentage of
+               the path's own geometry bounding box. The board-list scroll
+               track/thumb is a near-vertical line, so its bounding box is
+               only a couple of pixels wide — crayonA/B's normal "160% of the
+               bbox" region is then too narrow to hold the turbulence
+               displacement, and the stroke gets randomly clipped away in
+               patches, reading as the line fading thin in places (worst
+               right where the thumb segment happens to be straightest). A
+               fixed-width, viewport-relative-height region is never that
+               small, so nothing gets clipped no matter how narrow the path's
+               own bbox is. -->
+          <filter id="crayonScrollA" filterUnits="userSpaceOnUse" x="-16" y="-20%" width="45" height="140%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.045 0.09" numOctaves="2" seed="4" result="n"/>
+            <feDisplacementMap in="SourceGraphic" in2="n" scale="3.2" xChannelSelector="R" yChannelSelector="G"/>
+          </filter>
+          <filter id="crayonScrollB" filterUnits="userSpaceOnUse" x="-16" y="-20%" width="45" height="140%">
             <feTurbulence type="fractalNoise" baseFrequency="0.07 0.14" numOctaves="2" seed="11" result="n"/>
             <feDisplacementMap in="SourceGraphic" in2="n" scale="4.5" xChannelSelector="R" yChannelSelector="G"/>
           </filter>

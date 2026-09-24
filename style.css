@@ -101,6 +101,12 @@ body{
   pointer-events:none;
 }
 .toolbar-rule path{ fill:none; stroke:var(--crayon); stroke-width:2.2; opacity:.8; filter:url(#crayonA); }
+/* On desktop this just holds the action buttons inline with the brand;
+   flex:1 lets it soak up the remaining toolbar width so hint-toggle's
+   margin-left:auto still pushes "?" to the far right edge, matching the
+   old flat layout. On mobile-portrait it becomes the toolbar's second
+   row (see the max-width:480px block below). */
+.toolbar-actions{ display:flex; align-items:center; flex-wrap:wrap; gap:10px; flex:1 1 auto; min-width:0; }
 .brand{
   font-family:var(--ui-font);
   font-weight:400;
@@ -209,7 +215,7 @@ body{
 /* Primary (confirm) actions stay filled with the line color so they read
    as distinct from a plain outlined Cancel — the opposite of Cancel's
    fill/outline relationship, not a flat black invert. */
-.btn.primary{ font-weight:600; color:var(--on-crayon); }
+.btn.primary{ color:var(--on-crayon); }
 .btn.primary .crayon-frame path{ fill:var(--crayon); opacity:1; }
 /* --accent is just an alias for --crayon (see applyTheme), so filling with
    it on hover was a no-op — darken the fill instead so Yes visibly reacts
@@ -240,6 +246,7 @@ svg.edges path.visible{
   stroke-linecap:round;
   filter:url(#crayonA);
   pointer-events:none;
+  transition:stroke-width .12s ease;
 }
 svg.edges path.fuzz{
   fill:none;
@@ -249,10 +256,14 @@ svg.edges path.fuzz{
   opacity:.4;
   filter:url(#crayonB);
   pointer-events:none;
+  transition:stroke-width .12s ease;
 }
-svg.edges g.edge:hover path.visible{ stroke:var(--accent); }
-svg.edges g.edge:hover path.fuzz{ stroke:var(--accent); }
-svg.edges path.temp{ fill:none; stroke:var(--crayon); stroke-width:2.6; stroke-linecap:round; opacity:.85; filter:url(#crayonA); pointer-events:none; }
+/* Hovering a connecting line thickens it the same way hovering a node's
+   own circle outline does (2.2 -> 3.2) — width only, never a color swap,
+   so a hovered/selected line always stays exactly the board's Line color. */
+svg.edges g.edge:hover path.visible{ stroke-width:3.6; }
+svg.edges g.edge:hover path.fuzz{ stroke-width:3.6; }
+svg.edges path.temp{ fill:none; stroke:var(--crayon); stroke-width:2.6; stroke-linecap:round; filter:url(#crayonA); pointer-events:none; }
 
 /* ---------- hand-drawn circle frame ---------- */
 .frame{ position:relative; }
@@ -261,8 +272,14 @@ svg.edges path.temp{ fill:none; stroke:var(--crayon); stroke-width:2.6; stroke-l
    grabbing anywhere inside the circle (not just the tight photo/text box)
    reveals the connector dot and lets you drag from there too. */
 .node-hit{ position:absolute; z-index:-1; }
-.circle-frame path.circle-visible{ fill:var(--card); stroke:var(--crayon); stroke-width:2.2; stroke-opacity:.85; filter:url(#crayonA); transition:stroke-width .12s ease, stroke-opacity .12s ease, fill .15s ease; }
-.node:hover .circle-frame path.circle-visible{ stroke-width:3.2; stroke-opacity:1; }
+/* Full stroke-opacity always — the circle's own outline is drawn in the
+   exact same Line color as the connecting lines and the connector-drag dot,
+   never a lighter/blended shade of it. */
+.circle-frame path.circle-visible{ fill:var(--card); stroke:var(--crayon); stroke-width:2.2; stroke-opacity:1; filter:url(#crayonA); transition:stroke-width .12s ease, fill .15s ease; }
+.node:hover .circle-frame path.circle-visible{ stroke-width:3.2; }
+/* Selecting a node only thickens its own outline, same as hover — never a
+   color swap, so a selected circle stays the board's Line color. */
+.node.selected .circle-frame path.circle-visible{ stroke-width:3.4; }
 
 .connector-handle{
   position:absolute;
@@ -278,7 +295,9 @@ svg.edges path.temp{ fill:none; stroke:var(--crayon); stroke-width:2.6; stroke-l
   align-items:center;
   justify-content:center;
 }
-.node:hover .connector-handle{ display:flex; }
+/* Also shown on .selected, not just :hover — a touch screen has no hover,
+   so tapping to select a node is how a phone/tablet user reaches this dot. */
+.node:hover .connector-handle,.node.selected .connector-handle{ display:flex; }
 /* While actively dragging a connector line, every node's own Aa/delete/
    resize buttons would otherwise pop up on hover and sit right where you're
    trying to drop the line — hide them for the duration of the drag so the
@@ -295,8 +314,10 @@ svg.edges path.temp{ fill:none; stroke:var(--crayon); stroke-width:2.6; stroke-l
   /* Same hand-drawn wobble filter as the rest of the board's sketchy lines,
      applied straight to this plain circle border — no separate SVG needed. */
   filter:url(#crayonA);
+  transition:background .12s ease;
 }
-.connector-handle:hover::after{ background:var(--accent); border-color:var(--accent); }
+/* Hover fills the dot solid with the Line color, instead of thickening it. */
+.connector-handle:hover::after{ background:var(--crayon); }
 
 .resize-handle{
   position:absolute;
@@ -308,10 +329,10 @@ svg.edges path.temp{ fill:none; stroke:var(--crayon); stroke-width:2.6; stroke-l
   align-items:center;
   justify-content:center;
 }
-.resize-handle svg{ width:18px;height:18px; overflow:visible; }
+.resize-handle svg{ width:21px;height:21px; overflow:visible; }
 /* The corner arrow itself gets the same hand-drawn wobble filter as the
    board's other sketchy lines (no circle around it — just the icon). */
-.resize-handle path{ fill:none; stroke:var(--crayon); stroke-width:1.8; stroke-linecap:round; filter:url(#crayonA); }
+.resize-handle path{ fill:none; stroke:var(--crayon); stroke-width:2.1; stroke-linecap:round; stroke-linejoin:round; filter:url(#crayonA); }
 .node:hover .resize-handle,.node.selected .resize-handle{ display:flex; }
 
 /* ---------- nodes ---------- */
@@ -321,14 +342,14 @@ svg.edges path.temp{ fill:none; stroke:var(--crayon); stroke-width:2.6; stroke-l
   appearance:none;
   position:absolute;
   isolation:isolate;
-  width:19px;height:19px;
+  width:25px;height:25px;
   padding:0;
   border:none;
   border-radius:50%;
   background:transparent;
   transform:translate(-50%,-50%);
   color:var(--ink);
-  font-size:12px;
+  font-size:15px;
   line-height:1;
   cursor:pointer;
   display:none;
@@ -336,11 +357,12 @@ svg.edges path.temp{ fill:none; stroke:var(--crayon); stroke-width:2.6; stroke-l
   z-index:6;
 }
 .node .del .crayon-frame path{ fill:var(--card); stroke:var(--crayon); stroke-width:1.6; opacity:1; filter:url(#crayonA); transition:fill .12s ease, stroke .12s ease; }
-.node .del:hover{ color:#fff; }
-.node .del:hover .crayon-frame path{ fill:var(--accent); stroke:var(--accent); }
+/* Hover fills the dot solid with the Line color, instead of thickening it. */
+.node .del:hover .crayon-frame path{ fill:var(--crayon); stroke:var(--crayon); }
+.node .del:hover{ color:var(--on-crayon); }
 .node:hover .del,.node.selected .del{display:flex;}
-/* Selection is shown on the circle's own hand-drawn line, not a hard box. */
-.node.selected .circle-frame path.circle-visible{ stroke:var(--accent); stroke-width:3.4; stroke-opacity:1; }
+/* Selection is shown on the circle's own hand-drawn line, not a hard box
+   (see .node.selected .circle-frame path.circle-visible above). */
 
 .node-img .imgwrap{
   position:relative;
@@ -382,7 +404,8 @@ svg.edges path.temp{ fill:none; stroke:var(--crayon); stroke-width:2.6; stroke-l
   position:absolute;
   isolation:isolate;
   transform:translate(-50%,-50%);
-  width:26px;height:26px;
+  /* Sized to match the x/resize dots on the same circle. */
+  width:25px;height:25px;
   padding:0;
   border:none;
   border-radius:50%;
@@ -398,8 +421,9 @@ svg.edges path.temp{ fill:none; stroke:var(--crayon); stroke-width:2.6; stroke-l
 }
 .fit-btn .crayon-frame path{ fill:var(--card); stroke:var(--crayon); stroke-width:1.6; opacity:1; filter:url(#crayonA); transition:fill .12s ease, stroke .12s ease; }
 .node:hover .fit-btn,.node.selected .fit-btn{display:flex;}
-.fit-btn:hover{ color:#fff; }
-.fit-btn:hover .crayon-frame path{ fill:var(--accent); stroke:var(--accent); }
+/* Hover fills the dot solid with the Line color, instead of thickening it. */
+.fit-btn:hover .crayon-frame path{ fill:var(--crayon); stroke:var(--crayon); }
+.fit-btn:hover{ color:var(--on-crayon); }
 .fit-btn.active{ color:#fff; }
 .fit-btn.active .crayon-frame path{ fill:var(--crayon); stroke:var(--crayon); }
 
@@ -526,8 +550,32 @@ svg.edges path.temp{ fill:none; stroke:var(--crayon); stroke-width:2.6; stroke-l
   min-width:190px;
   max-width:min(260px, calc(100vw - 28px));
 }
-.boardlist{ display:flex; flex-direction:column; gap:4px; max-height:240px; overflow-y:auto; margin-bottom:10px; }
-.boardrow{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 8px; border-radius:12px; cursor:grab; }
+.boardlist{
+  display:flex; flex-direction:column; gap:4px; max-height:240px; overflow-y:auto;
+  /* The scrollbar itself is a hand-drawn SVG line in .boardscroll instead
+     (a real scrollbar can only ever be a straight rounded rectangle) —
+     hide the native one entirely rather than styling it. */
+  scrollbar-width:none;
+}
+.boardlist::-webkit-scrollbar{ display:none; }
+/* Its own column, separate from the list's content, so it sits well clear
+   of each row's delete (x) button instead of crowding it. */
+.boardlist-row{ display:flex; align-items:stretch; gap:10px; margin-bottom:10px; }
+.boardlist-row .boardlist{ flex:1; min-width:0; }
+.boardscroll{ flex:none; width:12px; }
+.boardscroll svg{ display:block; overflow:visible; }
+/* Faint full-length guide line plus a darker, thicker segment marking the
+   visible portion — drawn with the same smooth underlying curve + crayon
+   displacement filter + faint "fuzz" duplicate that the circle-connecting
+   lines use (svg.edges path.visible/.fuzz), so this reads as the same kind
+   of hand-drawn ink as the rest of the board instead of a clean vector
+   squiggle. */
+.boardscroll-track{ fill:none; stroke:var(--crayon); stroke-width:2; stroke-linecap:round; stroke-linejoin:round; opacity:.32; filter:url(#crayonScrollA); }
+.boardscroll-thumb{ fill:none; stroke:var(--crayon); stroke-width:3.2; stroke-linecap:round; stroke-linejoin:round; filter:url(#crayonScrollA); }
+.boardscroll-thumb-fuzz{ fill:none; stroke:var(--crayon); stroke-width:3.2; stroke-linecap:round; stroke-linejoin:round; opacity:.4; filter:url(#crayonScrollB); }
+/* Noticeably less right padding than the left, so the delete (x) button
+   sits well clear of the boardname's own padding, further right in its row. */
+.boardrow{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 2px 6px 8px; border-radius:12px; cursor:grab; }
 .boardrow:hover{ background:color-mix(in srgb, var(--crayon) 16%, transparent); }
 .boardrow.active .boardname{ color:var(--accent); }
 .boardrow.dragging{ opacity:.4; }
@@ -624,6 +672,22 @@ svg.edges path.temp{ fill:none; stroke:var(--crayon); stroke-width:2.6; stroke-l
 }
 
 @media (max-width:480px){
-  .brand{display:none;}
+  /* Portrait phones: the brand keeps its full size on its own top row
+     (it's the tap target for switching boards and carries the accent-color
+     dot, so it stays big and easy to hit) and the action buttons drop to a
+     second row underneath, instead of everything wrapping together. */
+  .toolbar{ flex-direction:column; align-items:stretch; gap:8px; padding:12px 12px 16px; }
+  .toolbar-actions{ flex:0 0 auto; }
   .btn{padding:7px 11px; font-size:13px;}
+}
+@media (max-width:360px){
+  .btn{ padding:6px 9px; font-size:12.5px; }
+  .toolbar{ gap:6px; padding:10px 10px 14px; }
+}
+/* A touch screen has no cursor to hover with, so widen the invisible tap
+   area around the small connector/resize handles without changing how
+   they look — the visual dot/icon stays centered and the same size. */
+@media (pointer:coarse){
+  .connector-handle{ width:40px; height:40px; }
+  .resize-handle{ width:38px; height:38px; }
 }
