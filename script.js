@@ -489,18 +489,55 @@
     document.body.removeChild(probe);
     return widths;
   }
+  // The font size "fill the circle" (bigText) aims for. computeContentSize
+  // sizes the CIRCLE around the text at this size first — the circle grows
+  // to fit a big word/line, it never shrinks the font to fit the circle.
+  var BIG_FONT = 40;
+  // Measures the natural block a run of lines needs at `fontPx` with no
+  // forced width — each explicit line as wide as it wants to be, heights
+  // summed — used to size a box AROUND text at a chosen font size, instead
+  // of fitting a font into an already-decided box.
+  function measureTextBox(rawLines, fontPx){
+    var probe = document.createElement('div');
+    probe.style.position = 'fixed';
+    probe.style.visibility = 'hidden';
+    probe.style.left = '-9999px';
+    probe.style.top = '0';
+    probe.style.whiteSpace = 'pre';
+    probe.style.fontFamily = 'var(--ui-font)';
+    probe.style.fontSize = fontPx + 'px';
+    probe.style.lineHeight = '1.35';
+    document.body.appendChild(probe);
+    var maxW = 0, totalH = 0;
+    rawLines.forEach(function(line){
+      probe.textContent = line || ' ';
+      maxW = Math.max(maxW, probe.scrollWidth);
+      totalH += probe.scrollHeight;
+    });
+    document.body.removeChild(probe);
+    return { w: maxW, h: totalH };
+  }
   function computeContentSize(n){
     if(n.type === 'image'){
       return { w: n.w||IMG_W, h: n.h||160 };
     }
     var text = n.text || '';
     var rawLines = text.split('\n');
+    if(n.bigText){
+      // "Fill the circle" draws the text at BIG_FONT, so size the circle to
+      // hold it at that size FIRST, with room to grow well past the normal
+      // caps for a long word/line — fitFontSize below then almost always
+      // just confirms BIG_FONT fits (or, for very short text, finds an even
+      // bigger size that fills this box), rather than a font ever having to
+      // shrink to make something fit.
+      var bigMinW = 160, bigMaxW = 560, bigMinH = 160, bigMaxH = 560;
+      var box = measureTextBox(rawLines, BIG_FONT);
+      var bw = Math.min(bigMaxW, Math.max(bigMinW, box.w + 40 + 18));
+      var bh = Math.min(bigMaxH, Math.max(bigMinH, box.h + 36 + 18));
+      return { w:bw, h:bh };
+    }
     var minW = 140, maxW = 320;
-    // "Fill the circle" (bigText) draws the same text much larger, so
-    // measure at a bigger reference size too — sizing the circle from the
-    // small (normal) size left no room to grow into without either the
-    // font staying small or a word having to wrap once enlarged.
-    var lineWidths = measureLineWidths(rawLines, n.bigText ? 34 : 21);
+    var lineWidths = measureLineWidths(rawLines, 21);
     var maxLineW = lineWidths.reduce(function(m,lw){ return Math.max(m, lw); }, 0);
     // +40 covers .editable's own left/right padding (20px each); +18 more
     // is slack above that — sizing to the exact measured width left zero
@@ -516,48 +553,30 @@
   }
   // Binary-searches the largest font size that still lets `text` fit inside
   // a box of `w` x `h` (matching .editable's own padding/line-height), for
-  // the "fill the circle" text-size toggle. white-space:pre (not pre-wrap +
-  // word-break) means each explicit line the user typed is measured as one
-  // unbroken run — a long single word (no spaces) used to get split mid-word
-  // once the font grew past what the current width could wrap cleanly; now
-  // the search just stops growing the font before that point, instead of
-  // ever breaking a line the user didn't break themselves.
+  // the "fill the circle" text-size toggle. Each candidate size is checked
+  // with measureTextBox — an UNCONSTRAINED (no forced width) measurement of
+  // each explicit line the user typed as one unbroken run — rather than a
+  // probe with a fixed width. A fixed-width probe's scrollWidth can never
+  // report less than that width (only more, on real overflow), so comparing
+  // it to w only ever catches gross overflow, not "this is riding right at
+  // the edge" — exactly what let a short word like "mess" get a font size
+  // the probe called safe, that then still wrapped in the real (flex,
+  // pre-wrap + word-break) .editable once sub-pixel layout differences
+  // tipped it over. Measuring the natural, unconstrained size and comparing
+  // it to the available space (with a few px of SLACK) catches that margin
+  // directly, and also means the search never accepts a size that would
+  // require breaking a line the user didn't break themselves.
   function fitFontSize(text, w, h){
-    var probe = document.createElement('div');
-    probe.style.position = 'fixed';
-    probe.style.visibility = 'hidden';
-    probe.style.left = '-9999px';
-    probe.style.top = '0';
-    probe.style.boxSizing = 'border-box';
-    probe.style.width = w + 'px';
-    probe.style.padding = '18px 20px';
-    probe.style.fontFamily = 'var(--ui-font)';
-    probe.style.lineHeight = '1.35';
-    probe.style.whiteSpace = 'pre';
-    // With the default overflow:visible, scrollWidth/scrollHeight on an
-    // element with a FIXED width just report that width back, even when
-    // the content is actually wider and spilling out past it — there's
-    // nothing to "scroll" to, so the browser never counts the overflow.
-    // That was silently defeating this whole size check: every font size
-    // "fit" the box because the check could never see it didn't, and the
-    // real editable (which really does clip/wrap) then split or spilled
-    // text a probed "safe" size had no way to catch. overflow:hidden turns
-    // scrollWidth/scrollHeight back into real overflow measurements.
-    probe.style.overflow = 'hidden';
-    probe.textContent = text || ' ';
-    document.body.appendChild(probe);
-    // best starts at the smallest size tried (not an arbitrary "21"), so an
-    // extreme case that doesn't even fit at 14px still comes back with the
-    // smallest, closest-to-fitting size instead of a bigger one nothing
-    // actually validated.
+    var rawLines = (text || ' ').split('\n');
+    var padW = 40, padH = 36; // .editable's own 20px/18px padding, each side
+    var SLACK = 3;
     var lo = 14, hi = 220, best = 14;
     while(lo <= hi){
       var mid = (lo + hi) >> 1;
-      probe.style.fontSize = mid + 'px';
-      if(probe.scrollHeight <= h && probe.scrollWidth <= w){ best = mid; lo = mid + 1; }
+      var box = measureTextBox(rawLines, mid);
+      if(box.h + padH <= h - SLACK && box.w + padW <= w - SLACK){ best = mid; lo = mid + 1; }
       else { hi = mid - 1; }
     }
-    document.body.removeChild(probe);
     return best;
   }
   function buildCircleFrame(n, contentW, contentH){
@@ -582,7 +601,10 @@
   }
 
   // ---------------- render ----------------
-  function render(){
+  // `_regrowDepth` is only ever passed by render() calling itself (see the
+  // safety net below) — every other call site keeps calling render() with
+  // no arguments.
+  function render(_regrowDepth){
     nodesLayer.innerHTML = '';
     nodeEls = {};
     state.nodes.forEach(function(n){
@@ -592,6 +614,36 @@
     });
     renderEdges();
     refreshButtonFrames();
+    // Belt-and-suspenders pass for "fill the circle" (bigText) nodes, run
+    // against the REAL, now-attached elements rather than an offscreen
+    // probe. fitFontSize's probe measurement and this element's actual
+    // render can disagree — most notably right after a page load, if the
+    // embedded 'I Eat Crayons' face hadn't finished loading/rasterizing yet
+    // when computeContentSize/fitFontSize's probes ran, so they measured a
+    // fallback font's (narrower) letter widths; the real font can then swap
+    // in wider and no longer fit. The fix is never to shrink the font —
+    // it's to re-measure and re-render, which (now that fonts are loaded)
+    // sizes the circle correctly around the text via computeContentSize.
+    // depth-capped so a genuinely pathological case can't loop forever.
+    var depth = _regrowDepth || 0;
+    if(depth < 3 && bigTextOverflowing()){
+      render(depth + 1);
+    }
+  }
+  // True if any "fill the circle" (bigText) node's real, live text is
+  // taller or wider than the box it was built for — a mismatch between the
+  // measurement used to size the circle and how the text actually renders.
+  function bigTextOverflowing(){
+    var found = false;
+    document.querySelectorAll('.node-text .editable').forEach(function(editable){
+      if(!editable.style.fontSize) return; // bigText off: nothing to check
+      var minH = parseFloat(editable.style.minHeight) || 0;
+      var w = parseFloat(editable.style.width) || 0;
+      if(editable.getBoundingClientRect().height > minH + 1 || editable.scrollWidth > w + 1){
+        found = true;
+      }
+    });
+    return found;
   }
 
   // ---------------- hand-drawn button frames ----------------
@@ -802,17 +854,15 @@
       fitBtn.addEventListener('click', function(e){
         e.stopPropagation();
         n.bigText = !n.bigText;
-        // Update this button and the text size in place instead of calling
-        // render() — render() would throw away and rebuild this very button
-        // while the cursor is still sitting on it, so the browser has to
-        // recompute :hover on the brand-new element and the fill briefly
-        // flashes back to hollow before the hover style re-applies. Nothing
-        // else about the node's size or layout depends on bigText, so a
-        // full re-render was never needed for this toggle.
-        fitBtn.classList.toggle('active', n.bigText);
-        fitBtn.title = n.bigText ? 'Use normal text size' : 'Fill the circle';
-        editable.style.fontSize = n.bigText ? (fitFontSize(n.text || placeholderText, contentW, contentH) + 'px') : '';
+        // This used to patch the button/font size in place and skip
+        // render() (to dodge a hover-state flash on this very button), but
+        // bigText can now change the circle's own size — a long word grows
+        // the circle instead of ever shrinking its font — which means the
+        // circle frame, button positions and connector anchors all have to
+        // be recomputed from scratch. That needs a full render(), so the
+        // minor flash is the tradeoff for the circle actually resizing.
         saveState();
+        render();
       });
       el.appendChild(fitBtn);
       btnSeeds.set(fitBtn, wobble);
@@ -2110,7 +2160,17 @@
     resizeTimer = setTimeout(refreshButtonFrames, 150);
   });
   if(document.fonts && document.fonts.ready){
-    document.fonts.ready.then(refreshButtonFrames);
+    // On a fresh page load, a node can get built (and — if "Aa" is used —
+    // have its font size fit to the circle) before the embedded 'I Eat
+    // Crayons' face has actually finished loading/rasterizing, using a
+    // fallback font's (narrower/different) letter widths for that
+    // measurement. Once the real font swaps in — which can render text
+    // measurably wider — that font size no longer actually fits, and with
+    // no re-check afterward, the word-break CSS would silently split a
+    // word to make room. Re-measuring and rebuilding every node once fonts
+    // are confirmed loaded catches and fixes that regardless of how fast
+    // (or slow) the embedded font happened to load this time.
+    document.fonts.ready.then(function(){ refreshButtonFrames(); render(); });
   }
   window.addEventListener('load', refreshButtonFrames);
 })();
