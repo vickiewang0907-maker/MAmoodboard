@@ -517,6 +517,29 @@
     document.body.removeChild(probe);
     return { w: maxW, h: totalH };
   }
+  // The wobbly circle is an ELLIPSE drawn around the content box (see
+  // circleGeom: rx = contentW/2 + extra, ry = contentH/2 + extra). An
+  // ellipse only touches a box of that same width/height at the midpoints
+  // of its sides — the box's own CORNERS sit outside the ellipse (a classic
+  // fact of inscribed rectangles), more so the flatter/wider the box. A
+  // multi-line block of big text is often exactly that shape (wide relative
+  // to its height), so the ends of its top and bottom lines can land in
+  // that gap and visually poke through/touch the oval's line, even though
+  // the box itself "fits". Rather than pad the box by a flat, guessed pixel
+  // amount (which only really works for one aspect ratio), grow it by a
+  // single scale factor `s` just large enough that the ellipse actually
+  // contains the text block's own far corner (tw, th) with a safety margin
+  // — this scales correctly whether the block is short-and-wide,
+  // tall-and-narrow, or square.
+  function growBoxForEllipse(tw, th, extra, safety){
+    var s = 1;
+    while(s < 20){
+      var rx = tw*s + extra, ry = th*s + extra;
+      if((tw*tw)/(rx*rx) + (th*th)/(ry*ry) <= safety) break;
+      s += 0.04;
+    }
+    return { w: tw*2*s, h: th*2*s };
+  }
   function computeContentSize(n){
     if(n.type === 'image'){
       return { w: n.w||IMG_W, h: n.h||160 };
@@ -532,9 +555,46 @@
       // shrink to make something fit.
       var bigMinW = 160, bigMaxW = 560, bigMinH = 160, bigMaxH = 560;
       var box = measureTextBox(rawLines, BIG_FONT);
-      var bw = Math.min(bigMaxW, Math.max(bigMinW, box.w + 40 + 18));
-      var bh = Math.min(bigMaxH, Math.max(bigMinH, box.h + 36 + 18));
-      return { w:bw, h:bh };
+      var tw = box.w/2, th = box.h/2;
+      // extra must match circleGeom's own ellipse padding for a text node
+      // (CIRCLE_PAD*0.55) — this is sizing the box specifically so THAT
+      // ellipse contains it, so the two have to agree. FIT_SAFETY (used
+      // below, for the font-fit cap) leaves clearance below the ideal
+      // ellipse's own boundary — the drawn shape is a hand-wobbled blob
+      // (see blobPath), not a true ellipse, and its per-vertex wobble
+      // (±10%) scales both axes together at that angle, which inflates a
+      // point sitting exactly on the nominal boundary to ~1/0.9² ≈ 1.23×
+      // outside it — so anything meant to end up AT the boundary needs to
+      // target nominal norm ≈ 0.8, not 1. GROW_SAFETY (for the circle's own
+      // outer size) can stay looser — the circle just needs to comfortably
+      // hold the safe-fit rectangle below plus some breathing room, it
+      // doesn't need to be ellipse-tight itself.
+      var extra = CIRCLE_PAD*0.55, GROW_SAFETY = 0.85, FIT_SAFETY = 0.8;
+      var grown = growBoxForEllipse(tw, th, extra, GROW_SAFETY);
+      var bw = Math.min(bigMaxW, Math.max(bigMinW, grown.w + 16));
+      var bh = Math.min(bigMaxH, Math.max(bigMinH, grown.h + 16));
+      // bw x bh sizes the CIRCLE, but fitFontSize below must not be allowed
+      // to just pick a bigger font that re-fills bw x bh edge-to-edge —
+      // that would undo the margin just added and put the corners right
+      // back outside the ellipse. Cap what fitFontSize can fill to the
+      // largest tw:th-shaped rectangle that itself still fits inside the
+      // ellipse THIS bw x bh box actually draws (recomputed from the final,
+      // clamped bw/bh, since bigMinW/bigMaxW etc. can change it from the
+      // grown size above).
+      var rx = bw/2 + extra, ry = bh/2 + extra;
+      var ratio = (tw*tw)/(rx*rx) + (th*th)/(ry*ry);
+      var k = ratio > 0 ? Math.sqrt(FIT_SAFETY / ratio) : 1;
+      // tw*2*k / th*2*k is the allowed GLYPH extent (ink only) — fitFontSize
+      // expects a box the same shape .editable's own CSS declares (glyph
+      // room plus its 20px/18px padding), and subtracts that padding back
+      // out itself, so it has to be added back here too. Skipping this
+      // double-subtracted padding, leaving almost nothing for the glyph
+      // itself whenever the safe glyph extent was already small (a lone
+      // short word/character, where the padding is a big fraction of the
+      // box) — visibly undersizing exactly the text that had the least
+      // corner-touch risk to begin with.
+      var safeW = Math.min(bw, tw*2*k + 40), safeH = Math.min(bh, th*2*k + 36);
+      return { w:bw, h:bh, safeW:safeW, safeH:safeH };
     }
     var minW = 140, maxW = 320;
     var lineWidths = measureLineWidths(rawLines, 21);
@@ -833,7 +893,15 @@
       if(n.bigText){
         // Measure against the placeholder itself when there's no text yet,
         // so the empty-state hint doesn't get scaled past the circle.
-        editable.style.fontSize = fitFontSize(n.text || placeholderText, contentW, contentH) + 'px';
+        // fitFontSize is capped to size.safeW/safeH (the ellipse-safe inner
+        // rectangle from computeContentSize), not the full contentW/contentH
+        // — filling the whole box edge-to-edge is exactly what let text
+        // reach the box's corners, which sit outside the actual wobbly
+        // circle. The editable itself still gets the full contentW/contentH
+        // so its flex centering places the (smaller) fitted text in the
+        // middle, with even clearance on all sides.
+        var fitW = size.safeW || contentW, fitH = size.safeH || contentH;
+        editable.style.fontSize = fitFontSize(n.text || placeholderText, fitW, fitH) + 'px';
       }
       editable.addEventListener('blur', function(){
         n.text = editable.innerText.replace(/\n$/, '');
