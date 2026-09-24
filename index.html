@@ -1,6 +1,14 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Mood Board</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800;900&family=Courier+Prime:wght@400;700&family=I+Eat+Crayons&display=swap">
 <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
 <div class="app">
   <div class="toolbar">
     <div class="brand" id="brandLabel" title="Switch or add a board">Mood Board <button class="dot-btn" id="accentDot" type="button" title="Pick accent color" aria-label="Pick accent color"></button></div>
@@ -48,12 +56,20 @@
                right where the thumb segment happens to be straightest). A
                fixed-width, viewport-relative-height region is never that
                small, so nothing gets clipped no matter how narrow the path's
-               own bbox is. -->
-          <filter id="crayonScrollA" filterUnits="userSpaceOnUse" x="-16" y="-20%" width="45" height="140%">
+               own bbox is.
+               y/height are plain pixel numbers here too, not a percentage —
+               this filter is referenced from a *different* <svg> (the
+               dynamically-built board-list scroll indicator) than the one
+               it's defined in, and Safari resolves a percentage userSpaceOnUse
+               region on a cross-SVG filter reference inconsistently, which
+               was clipping this whole line away to nothing there (Chrome was
+               fine). -50/400 comfortably covers the tallest the scroll list
+               ever gets (its own CSS max-height is 240px). -->
+          <filter id="crayonScrollA" filterUnits="userSpaceOnUse" x="-16" y="-50" width="45" height="400">
             <feTurbulence type="fractalNoise" baseFrequency="0.045 0.09" numOctaves="2" seed="4" result="n"/>
             <feDisplacementMap in="SourceGraphic" in2="n" scale="3.2" xChannelSelector="R" yChannelSelector="G"/>
           </filter>
-          <filter id="crayonScrollB" filterUnits="userSpaceOnUse" x="-16" y="-20%" width="45" height="140%">
+          <filter id="crayonScrollB" filterUnits="userSpaceOnUse" x="-16" y="-50" width="45" height="400">
             <feTurbulence type="fractalNoise" baseFrequency="0.07 0.14" numOctaves="2" seed="11" result="n"/>
             <feDisplacementMap in="SourceGraphic" in2="n" scale="4.5" xChannelSelector="R" yChannelSelector="G"/>
           </filter>
@@ -73,3 +89,5 @@
 </div>
 
 <script src="script.js"></script>
+</body>
+</html>

@@ -465,16 +465,44 @@
       ry: contentH/2 + extra
     };
   }
+  // Measures each explicit line's own natural (unwrapped) width in the
+  // actual UI font, instead of guessing from character count — a fixed
+  // "11px per character" estimate was too narrow for some fonts/words (a
+  // single word like "together" was getting wrapped across two lines even
+  // though it would have fit on one at a slightly wider box). Widening up
+  // to maxW to keep a line whole is preferred over wrapping it.
+  function measureLineWidths(rawLines){
+    var probe = document.createElement('div');
+    probe.style.position = 'fixed';
+    probe.style.visibility = 'hidden';
+    probe.style.left = '-9999px';
+    probe.style.top = '0';
+    probe.style.whiteSpace = 'pre';
+    probe.style.fontFamily = 'var(--ui-font)';
+    probe.style.fontSize = '21px';
+    probe.style.lineHeight = '1.35';
+    document.body.appendChild(probe);
+    var widths = rawLines.map(function(line){
+      probe.textContent = line || ' ';
+      return probe.scrollWidth;
+    });
+    document.body.removeChild(probe);
+    return widths;
+  }
   function computeContentSize(n){
     if(n.type === 'image'){
       return { w: n.w||IMG_W, h: n.h||160 };
     }
     var text = n.text || '';
     var rawLines = text.split('\n');
-    var maxLineLen = 0;
-    rawLines.forEach(function(line){ if(line.length > maxLineLen) maxLineLen = line.length; });
     var minW = 140, maxW = 320;
-    var w = Math.min(maxW, Math.max(minW, 70 + maxLineLen*11));
+    var lineWidths = measureLineWidths(rawLines);
+    var maxLineW = lineWidths.reduce(function(m,lw){ return Math.max(m, lw); }, 0);
+    // +40 covers .editable's own left/right padding (20px each); +18 more
+    // is slack above that — sizing to the exact measured width left zero
+    // margin, and the real element (word-break:break-word, subpixel
+    // rounding) would still wrap a word right at that edge.
+    var w = Math.min(maxW, Math.max(minW, maxLineW + 40 + 18));
     var charsPerLine = Math.max(8, Math.floor((w-50)/11));
     var lineCount = Math.max(1, rawLines.reduce(function(sum,line){
       return sum + Math.max(1, Math.ceil(line.length/charsPerLine));
@@ -682,6 +710,13 @@
     connectorEl.addEventListener('pointerdown', function(e){ e.stopPropagation(); startConnect(e, n.id); });
     if(cropNodeId === n.id){ connectorEl.style.display = 'none'; }
 
+    // What a double-tap/double-click on this node's own content does —
+    // toggle crop mode for a photo, enter text-edit mode for a note. Set
+    // by whichever branch below applies, and invoked from the manual
+    // double-tap detection in this node's pointerdown handler further down
+    // (not a native `dblclick` listener — see the note on lastNodeTap).
+    var doubleTapAction = null;
+
     if(n.type === 'image'){
       var wrap = document.createElement('div');
       wrap.className = 'imgwrap';
@@ -693,10 +728,10 @@
       wrap.appendChild(img);
       frame.appendChild(wrap);
 
-      // Double-click the photo itself to start (or stop) cropping — there
-      // used to be a separate "Crop" button under the photo for this.
-      el.addEventListener('dblclick', function(e){
-        e.stopPropagation();
+      // Double-tap/double-click the photo itself to start (or stop)
+      // cropping — there used to be a separate "Crop" button under the
+      // photo for this.
+      doubleTapAction = function(e){
         if(cropNodeId === n.id){
           cropNodeId = null; cropRect = null;
         } else {
@@ -705,7 +740,7 @@
           cropRect = { x:mx, y:my, w:contentW - mx*2, h:contentH - my*2 };
         }
         render();
-      });
+      };
 
       if(cropNodeId === n.id){
         wrap.appendChild(buildCropOverlay(contentW, contentH));
@@ -760,11 +795,10 @@
       el.appendChild(fitBtn);
       btnSeeds.set(fitBtn, wobble);
       buildButtonFrame(fitBtn, {w:25, h:25});
-      // Pointer capture from drag-tracking (below) retargets the native
-      // dblclick to the outer node element rather than the editable div
-      // itself, so this listens here instead of on `editable`.
-      el.addEventListener('dblclick', function(e){
-        e.stopPropagation();
+      // Double-tap/double-click a note's own content enters text-edit
+      // mode. Pointer capture from drag-tracking (below) retargets this to
+      // the outer node element rather than the editable div itself.
+      doubleTapAction = function(e){
         editable.contentEditable = 'true';
         el.classList.add('editing');
         editable.focus();
@@ -787,7 +821,7 @@
           sel.removeAllRanges();
           sel.addRange(range);
         }
-      });
+      };
       editable.addEventListener('keydown', function(e){
         e.stopPropagation();
         if(e.key === 'Escape'){
@@ -814,6 +848,22 @@
     delEl.addEventListener('click', function(e){ e.stopPropagation(); deleteNode(n.id); });
     resizeEl.addEventListener('pointerdown', function(e){ startResize(e, n.id, el); });
     el.addEventListener('pointerdown', function(e){
+      // Manual double-tap detection stands in for the native `dblclick`
+      // event, which touch browsers routinely never synthesize once an
+      // ancestor sets touch-action:none (required here for custom
+      // pan/pinch handling) — this makes double-tap-to-edit and
+      // double-tap-to-crop work on mobile again.
+      if((e.button === undefined || e.button === 0) && !el.classList.contains('editing')){
+        var tapNow = Date.now();
+        if(lastNodeTap && lastNodeTap.id === n.id && (tapNow - lastNodeTap.time) < 400 &&
+           Math.hypot(e.clientX - lastNodeTap.x, e.clientY - lastNodeTap.y) < 24){
+          lastNodeTap = null;
+          e.stopPropagation(); e.preventDefault();
+          if(doubleTapAction) doubleTapAction(e);
+          return;
+        }
+        lastNodeTap = { id:n.id, time:tapNow, x:e.clientX, y:e.clientY };
+      }
       // Grabbing right on the circle's own hand-drawn line starts a
       // connector straight from there, instead of needing to land exactly
       // on the small dot that chases the cursor around the edge — well
@@ -833,6 +883,45 @@
             return;
           }
         }
+      }
+      // Touch input has no shift key, so a long-press on a circle stands
+      // in for shift-click: hold still for ~550ms and the node is added
+      // to (or removed from) the current multi-selection instead of the
+      // selection collapsing to just this node. Moving past a small
+      // threshold, or releasing early, cancels the long-press and falls
+      // back to an ordinary tap (select) or drag via startNodeDrag.
+      if(e.pointerType === 'touch' && !e.shiftKey && cropNodeId !== n.id && !el.classList.contains('editing')){
+        var lpStartX = e.clientX, lpStartY = e.clientY, lpPid = e.pointerId, lpDone = false;
+        var lpMove = function(ev){
+          if(ev.pointerId !== lpPid || lpDone) return;
+          if(Math.hypot(ev.clientX-lpStartX, ev.clientY-lpStartY) > 8){
+            lpDone = true;
+            clearTimeout(lpTimer);
+            window.removeEventListener('pointermove', lpMove);
+            window.removeEventListener('pointerup', lpUp);
+            startNodeDrag(e, n.id, el);
+          }
+        };
+        var lpUp = function(ev){
+          if(ev.pointerId !== lpPid || lpDone) return;
+          lpDone = true;
+          clearTimeout(lpTimer);
+          window.removeEventListener('pointermove', lpMove);
+          window.removeEventListener('pointerup', lpUp);
+          if(!isSelected(n.id)) setSelection([n.id]); else selectedNodeId = n.id;
+          refreshSelectedClasses();
+          bringNodeToFront(n.id);
+        };
+        var lpTimer = setTimeout(function(){
+          lpDone = true;
+          window.removeEventListener('pointermove', lpMove);
+          window.removeEventListener('pointerup', lpUp);
+          toggleSelect(n.id);
+          refreshSelectedClasses();
+        }, 550);
+        window.addEventListener('pointermove', lpMove);
+        window.addEventListener('pointerup', lpUp);
+        return;
       }
       startNodeDrag(e, n.id, el);
     });
@@ -1155,6 +1244,13 @@
     if(el && el.parentNode) el.parentNode.appendChild(el);
     saveState();
   }
+  // Tracks the last tap on ANY node (id/time/position) so a node's own
+  // pointerdown handler can detect a double-tap itself instead of relying
+  // on the browser's native `dblclick` — which never reliably fires from a
+  // double-tap on a touch screen, especially with touch-action:none set on
+  // ancestors for panning/pinch (it stops the browser from synthesizing
+  // dblclick at all on many mobile browsers).
+  var lastNodeTap = null;
   var dragCtx = null;
   function startNodeDrag(e, id, el){
     if(e.button !== undefined && e.button !== 0) return;
@@ -1362,7 +1458,6 @@
   // becomes a lasso-select (like shift-drag) instead of adding a note.
   var lastEmptyDown = null;
   var dblDragCtx = null;
-  var suppressDblClick = false;
   // ---------------- two-finger pinch-to-zoom ----------------
   // Tracked independently of panCtx/marqueeCtx/dblDragCtx: as soon as a
   // second touch point lands anywhere on the viewport, whatever gesture the
@@ -1439,7 +1534,6 @@
       var dx = e.clientX - dblDragCtx.startClientX, dy = e.clientY - dblDragCtx.startClientY;
       if(!dblDragCtx.active && Math.hypot(dx,dy) > 4){
         dblDragCtx.active = true;
-        suppressDblClick = true;
         startMarquee({ clientX:dblDragCtx.startClientX, clientY:dblDragCtx.startClientY, pointerId:dblDragCtx.pointerId });
       }
       if(dblDragCtx.active) onMarqueeMove(e);
@@ -1462,11 +1556,18 @@
     if(dblDragCtx){
       var wasActive = dblDragCtx.active;
       dblDragCtx = null;
-      if(wasActive && marqueeCtx) endMarquee(e);
-      // Any dblclick belonging to this same gesture fires synchronously
-      // right after pointerup/mouseup, before this timeout runs — so by the
-      // time we clear the flag, a real dblclick has already consumed it.
-      if(wasActive) setTimeout(function(){ suppressDblClick = false; }, 0);
+      if(wasActive){
+        if(marqueeCtx) endMarquee(e);
+      } else if(e.type === 'pointerup'){
+        // A genuine double-tap/double-click on empty space (the second
+        // pointerdown landed inside the time/distance window above, and
+        // never turned into a drag) — detected manually here rather than
+        // via a native `dblclick` listener, which touch browsers routinely
+        // never synthesize once touch-action:none is set on the viewport
+        // (needed for custom pan/pinch handling). A pointercancel (e.g. the
+        // gesture got interrupted) skips adding a note.
+        addTextNode(screenToWorld(e.clientX, e.clientY));
+      }
       return;
     }
     if(marqueeCtx){ endMarquee(e); return; }
@@ -1474,12 +1575,6 @@
   }
   viewport.addEventListener('pointerup', endPan);
   viewport.addEventListener('pointercancel', endPan);
-
-  viewport.addEventListener('dblclick', function(e){
-    if(suppressDblClick){ suppressDblClick = false; return; }
-    if(e.target !== viewport && e.target !== world && e.target !== svg && e.target !== nodesLayer) return;
-    addTextNode(screenToWorld(e.clientX, e.clientY));
-  });
 
   viewport.addEventListener('wheel', function(e){
     e.preventDefault();
@@ -1898,6 +1993,11 @@
     function updateScrollIndicator(){
       var h = list.clientHeight, sh = list.scrollHeight;
       var w = 13, pad = 4, midX = w/2;
+      // .boardlist-row no longer stretches its children to match each
+      // other (see the CSS comment on it), so the scroll column has to be
+      // told its height explicitly here, once list.clientHeight is known —
+      // otherwise it would just collapse to 0.
+      scrollEl.style.height = h + 'px';
       scrollSvg.setAttribute('width', w);
       scrollSvg.setAttribute('height', h);
       scrollSvg.setAttribute('viewBox', '0 0 '+w+' '+h);

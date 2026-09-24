@@ -27,7 +27,11 @@
   --ring:#141311;
   --check-a:#eeeeee;
   --check-b:#ffffff;
-  --ui-font:'I Eat Crayons',"HanziPen TC",'Archivo',-apple-system,BlinkMacSystemFont,"PingFang TC","Heiti TC","Noto Sans TC","Noto Sans CJK TC","Microsoft JhengHei","Microsoft YaHei","WenQuanYi Micro Hei",system-ui,sans-serif;
+  /* 'I Eat Crayons' only has Latin glyphs, so every Chinese character falls
+     through to a plain system gothic (Heiti/PingFang/Noto Sans/Microsoft
+     JhengHei, depending on OS) by design — a hand-brush CJK font was tried
+     here and reverted at the user's request. */
+  --ui-font:'I Eat Crayons','Archivo',-apple-system,BlinkMacSystemFont,"PingFang TC","Heiti TC","Noto Sans TC","Noto Sans CJK TC","Microsoft JhengHei","Microsoft YaHei","WenQuanYi Micro Hei",system-ui,sans-serif;
 }
 /* The initial/default palette is always the light palette above, regardless
    of the visitor's OS dark-mode setting — there's no in-app light/dark
@@ -49,7 +53,7 @@
   --check-a:#1c1c1a;
   --check-b:#111110;
 }
-*{box-sizing:border-box;}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
 /* Every button here draws its own hand-drawn frame — the browser's native
    focus ring (a solid dark halo in some browsers, shown whenever a dialog's
    primary button is auto-focused) would otherwise sit on top of that and
@@ -557,7 +561,10 @@ svg.edges path.temp{ fill:none; stroke:var(--crayon); stroke-width:2.6; stroke-l
   max-width:min(260px, calc(100vw - 28px));
 }
 .boardlist{
-  display:flex; flex-direction:column; gap:4px; max-height:240px; overflow-y:auto;
+  display:flex; flex-direction:column; gap:4px; max-height:186px; overflow-y:auto;
+  /* max-height fits exactly 5 board rows (each ~33px + the 4px gap) before
+     it kicks in, so the list only starts scrolling once a 6th board is
+     added — under that, the panel is only ever as tall as it needs to be. */
   /* The scrollbar itself is a hand-drawn SVG line in .boardscroll instead
      (a real scrollbar can only ever be a straight rounded rectangle) —
      hide the native one entirely rather than styling it. */
@@ -566,7 +573,17 @@ svg.edges path.temp{ fill:none; stroke:var(--crayon); stroke-width:2.6; stroke-l
 .boardlist::-webkit-scrollbar{ display:none; }
 /* Its own column, separate from the list's content, so it sits well clear
    of each row's delete (x) button instead of crowding it. */
-.boardlist-row{ display:flex; align-items:stretch; gap:10px; margin-bottom:10px; }
+/* align-items:flex-start (not the default stretch) on purpose: the scroll
+   column's own <svg> has no width/height until updateScrollIndicator() sets
+   them on the next frame, so for one frame it's an un-sized replaced
+   element — which browsers default to rendering at 300x150. With `stretch`
+   that oversized sibling was pulling .boardlist (flex:1) up to match it,
+   which is what made a board list with only 1-2 boards in it show a big
+   block of empty space below them instead of just being as tall as its
+   rows. JS now sets the scroll column's own height explicitly to match the
+   list's real height once it knows it (see updateScrollIndicator), so
+   .boardlist is free to size itself from its own content only. */
+.boardlist-row{ display:flex; align-items:flex-start; gap:10px; margin-bottom:10px; }
 .boardlist-row .boardlist{ flex:1; min-width:0; }
 .boardscroll{ flex:none; width:12px; }
 .boardscroll svg{ display:block; overflow:visible; }
@@ -685,10 +702,16 @@ svg.edges path.temp{ fill:none; stroke:var(--crayon); stroke-width:2.6; stroke-l
   .toolbar{ flex-direction:column; align-items:stretch; gap:8px; padding:12px 12px 16px; }
   .toolbar-actions{ flex:0 0 auto; }
   .btn{padding:7px 11px; font-size:13px;}
+  /* .btn.iconbtn (the "?" help button) is round with fixed pixel
+     width/height rather than padding+font-size, so it doesn't shrink
+     along with the pill-shaped buttons above unless given its own
+     override here. */
+  .btn.iconbtn{ width:30px; height:30px; font-size:15px; }
 }
 @media (max-width:360px){
   .btn{ padding:6px 9px; font-size:12.5px; }
   .toolbar{ gap:6px; padding:10px 10px 14px; }
+  .btn.iconbtn{ width:27px; height:27px; font-size:13.5px; }
 }
 /* A touch screen has no cursor to hover with, so widen the invisible tap
    area around the small connector/resize handles without changing how
