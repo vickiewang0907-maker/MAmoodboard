@@ -534,6 +534,16 @@
     probe.style.fontFamily = 'var(--ui-font)';
     probe.style.lineHeight = '1.35';
     probe.style.whiteSpace = 'pre';
+    // With the default overflow:visible, scrollWidth/scrollHeight on an
+    // element with a FIXED width just report that width back, even when
+    // the content is actually wider and spilling out past it — there's
+    // nothing to "scroll" to, so the browser never counts the overflow.
+    // That was silently defeating this whole size check: every font size
+    // "fit" the box because the check could never see it didn't, and the
+    // real editable (which really does clip/wrap) then split or spilled
+    // text a probed "safe" size had no way to catch. overflow:hidden turns
+    // scrollWidth/scrollHeight back into real overflow measurements.
+    probe.style.overflow = 'hidden';
     probe.textContent = text || ' ';
     document.body.appendChild(probe);
     // best starts at the smallest size tried (not an arbitrary "21"), so an
