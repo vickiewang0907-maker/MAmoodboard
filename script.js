@@ -471,7 +471,7 @@
   // single word like "together" was getting wrapped across two lines even
   // though it would have fit on one at a slightly wider box). Widening up
   // to maxW to keep a line whole is preferred over wrapping it.
-  function measureLineWidths(rawLines){
+  function measureLineWidths(rawLines, fontPx){
     var probe = document.createElement('div');
     probe.style.position = 'fixed';
     probe.style.visibility = 'hidden';
@@ -479,7 +479,7 @@
     probe.style.top = '0';
     probe.style.whiteSpace = 'pre';
     probe.style.fontFamily = 'var(--ui-font)';
-    probe.style.fontSize = '21px';
+    probe.style.fontSize = (fontPx || 21) + 'px';
     probe.style.lineHeight = '1.35';
     document.body.appendChild(probe);
     var widths = rawLines.map(function(line){
@@ -496,7 +496,11 @@
     var text = n.text || '';
     var rawLines = text.split('\n');
     var minW = 140, maxW = 320;
-    var lineWidths = measureLineWidths(rawLines);
+    // "Fill the circle" (bigText) draws the same text much larger, so
+    // measure at a bigger reference size too — sizing the circle from the
+    // small (normal) size left no room to grow into without either the
+    // font staying small or a word having to wrap once enlarged.
+    var lineWidths = measureLineWidths(rawLines, n.bigText ? 34 : 21);
     var maxLineW = lineWidths.reduce(function(m,lw){ return Math.max(m, lw); }, 0);
     // +40 covers .editable's own left/right padding (20px each); +18 more
     // is slack above that — sizing to the exact measured width left zero
@@ -512,7 +516,12 @@
   }
   // Binary-searches the largest font size that still lets `text` fit inside
   // a box of `w` x `h` (matching .editable's own padding/line-height), for
-  // the "fill the circle" text-size toggle.
+  // the "fill the circle" text-size toggle. white-space:pre (not pre-wrap +
+  // word-break) means each explicit line the user typed is measured as one
+  // unbroken run — a long single word (no spaces) used to get split mid-word
+  // once the font grew past what the current width could wrap cleanly; now
+  // the search just stops growing the font before that point, instead of
+  // ever breaking a line the user didn't break themselves.
   function fitFontSize(text, w, h){
     var probe = document.createElement('div');
     probe.style.position = 'fixed';
@@ -524,11 +533,14 @@
     probe.style.padding = '18px 20px';
     probe.style.fontFamily = 'var(--ui-font)';
     probe.style.lineHeight = '1.35';
-    probe.style.whiteSpace = 'pre-wrap';
-    probe.style.wordBreak = 'break-word';
+    probe.style.whiteSpace = 'pre';
     probe.textContent = text || ' ';
     document.body.appendChild(probe);
-    var lo = 14, hi = 220, best = 21;
+    // best starts at the smallest size tried (not an arbitrary "21"), so an
+    // extreme case that doesn't even fit at 14px still comes back with the
+    // smallest, closest-to-fitting size instead of a bigger one nothing
+    // actually validated.
+    var lo = 14, hi = 220, best = 14;
     while(lo <= hi){
       var mid = (lo + hi) >> 1;
       probe.style.fontSize = mid + 'px';
