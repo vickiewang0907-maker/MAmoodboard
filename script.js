@@ -686,17 +686,27 @@
     // sizes the circle correctly around the text via computeContentSize.
     // depth-capped so a genuinely pathological case can't loop forever.
     var depth = _regrowDepth || 0;
-    if(depth < 3 && bigTextOverflowing()){
+    if(depth < 3 && textOverflowing()){
       render(depth + 1);
     }
   }
-  // True if any "fill the circle" (bigText) node's real, live text is
-  // taller or wider than the box it was built for — a mismatch between the
-  // measurement used to size the circle and how the text actually renders.
-  function bigTextOverflowing(){
+  // True if any text node's real, live text is taller or wider than the box
+  // it was built for — a mismatch between computeContentSize's measurement
+  // (done with measureLineWidths/measureTextBox, which can run before the
+  // embedded 'I Eat Crayons' face has finished loading and so measure a
+  // fallback font's narrower letter widths) and how the text actually
+  // renders once the real font is in. This used to only check "fill the
+  // circle" (bigText) nodes — regular auto-sized text nodes have the exact
+  // same width/minHeight set on their .editable (see buildNodeEl) and are
+  // just as exposed to this race, but had no self-correction at all, so a
+  // node created early (e.g. the seeded welcome-board notes, built right at
+  // page load) could stay permanently undersized: its circle drawn to fit
+  // the fallback-font measurement, while the real font wraps its text into
+  // more/wider lines that spill past that circle — which is exactly what
+  // made board exports look "squeezed" and cut off some of the content.
+  function textOverflowing(){
     var found = false;
     document.querySelectorAll('.node-text .editable').forEach(function(editable){
-      if(!editable.style.fontSize) return; // bigText off: nothing to check
       var minH = parseFloat(editable.style.minHeight) || 0;
       var w = parseFloat(editable.style.width) || 0;
       if(editable.getBoundingClientRect().height > minH + 1 || editable.scrollWidth > w + 1){
@@ -777,7 +787,11 @@
     var delEl = document.createElement('button');
     delEl.className = 'del';
     delEl.type = 'button';
-    delEl.innerHTML = '×';
+    // A hand-drawn X (same crayon displacement filter + crossing-line
+    // shape as the board-list delete button), instead of a flat, perfectly
+    // straight "×" glyph that stood out against every other hand-drawn
+    // control on the node.
+    delEl.innerHTML = '<svg viewBox="0 0 14 14" width="11" height="11" aria-hidden="true"><path d="M3 3 L11 11 M11 3 L3 11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" filter="url(#crayonA)"/></svg>';
     delEl.title = 'Delete';
     var delPt = pointOnWobblyEllipse(geom, wobble, ANGLE_TOP_RIGHT);
     delEl.style.left = delPt.x + 'px';
@@ -942,25 +956,39 @@
         editable.contentEditable = 'true';
         el.classList.add('editing');
         editable.focus();
-        var range = null;
-        if(!editable.textContent){
-          // Empty note: ignore the click position and just drop the caret
-          // into the (empty) content, so CSS centering places it in the
-          // middle of the circle instead of wherever the click landed.
-          range = document.createRange();
-          range.selectNodeContents(editable);
-        } else if(document.caretRangeFromPoint){
-          range = document.caretRangeFromPoint(e.clientX, e.clientY);
-        } else if(document.caretPositionFromPoint){
-          var pos = document.caretPositionFromPoint(e.clientX, e.clientY);
-          if(pos && pos.offsetNode){ range = document.createRange(); range.setStart(pos.offsetNode, pos.offset); }
-        }
-        if(range){
-          range.collapse(true);
-          var sel = window.getSelection();
-          sel.removeAllRanges();
-          sel.addRange(range);
-        }
+        var clientX = e.clientX, clientY = e.clientY;
+        // Placing the caret is deferred to the next frame instead of doing
+        // it synchronously in this same touch handler. Mobile Safari/Chrome
+        // ties their built-in cursor-placement magnifier loupe to a text
+        // selection changing WHILE a touch is still active — and that's
+        // exactly what setting a collapsed Range via caretRangeFromPoint +
+        // sel.addRange() does here, so on a phone it would sometimes pop up
+        // that same native magnifier right as double-tap-to-edit kicked in,
+        // even though nothing was actually being dragged/selected. By the
+        // next animation frame the touch that triggered this has already
+        // ended, so the same selection change no longer has a live touch to
+        // attach the loupe to.
+        requestAnimationFrame(function(){
+          var range = null;
+          if(!editable.textContent){
+            // Empty note: ignore the click position and just drop the caret
+            // into the (empty) content, so CSS centering places it in the
+            // middle of the circle instead of wherever the click landed.
+            range = document.createRange();
+            range.selectNodeContents(editable);
+          } else if(document.caretRangeFromPoint){
+            range = document.caretRangeFromPoint(clientX, clientY);
+          } else if(document.caretPositionFromPoint){
+            var pos = document.caretPositionFromPoint(clientX, clientY);
+            if(pos && pos.offsetNode){ range = document.createRange(); range.setStart(pos.offsetNode, pos.offset); }
+          }
+          if(range){
+            range.collapse(true);
+            var sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
+        });
       };
       editable.addEventListener('keydown', function(e){
         e.stopPropagation();
@@ -1486,6 +1514,18 @@
   var connectCtx = null;
   var tempPath = null;
   function startConnect(e, id){
+    // If a note is still being actively typed into (contentEditable, not
+    // yet blurred), commit it now. e.preventDefault() just below stops the
+    // browser's own default mousedown behavior — which is also what would
+    // normally blur that editable and save it (see its 'blur' listener).
+    // Without this, text typed but never clicked away from only exists in
+    // the live DOM; the moment this drag finishes and calls render() (new
+    // edge created), the node gets rebuilt from the node's own (still
+    // empty/stale) saved text and whatever was just typed is gone.
+    var ae = document.activeElement;
+    if(ae && ae !== document.body && ae.isContentEditable && ae.classList.contains('editable')){
+      ae.blur();
+    }
     e.stopPropagation(); e.preventDefault();
     connectCtx = {from:id, pointerId:e.pointerId};
     appEl.classList.add('connecting');
@@ -1636,6 +1676,16 @@
     }
     if(pinchCtx) return;
     if(e.target !== viewport && e.target !== world && e.target !== svg && e.target !== nodesLayer) return;
+    // Without this, a touch's SECOND tap-down of a double-tap-and-drag (the
+    // gesture that starts a marquee/lasso selection box below) is never
+    // told its default action is being handled — so even with
+    // -webkit-user-select:none and touch-action:none already set, iOS
+    // still runs its own "is this the start of a press-and-hold text
+    // selection?" gesture recognizer on that second touch, which is what
+    // was popping up the native magnifier loupe over empty canvas.
+    // touch-action:none suppresses scrolling/panning gestures but not this
+    // one, so it needs an explicit preventDefault on the touch itself.
+    if(e.pointerType === 'touch') e.preventDefault();
     if(e.shiftKey){
       startMarquee(e);
       return;
@@ -1796,8 +1846,11 @@
     if(helpEl){ helpEl.remove(); helpEl = null; return; }
     helpEl = document.createElement('div');
     helpEl.className = 'help';
+    // Same hand-drawn crossing-line X as the node delete button and the
+    // board-list delete button, instead of a flat, perfectly straight "×"
+    // glyph that stood out against the rest of the hand-drawn UI.
     helpEl.innerHTML =
-      '<button class="close" aria-label="Close">×</button>'+
+      '<button class="close" aria-label="Close"><svg viewBox="0 0 14 14" width="13" height="13" aria-hidden="true"><path d="M3 3 L11 11 M11 3 L3 11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" filter="url(#crayonA)"/></svg></button>'+
       '<h3>How To</h3>'+
       howtoListHTML();
     document.querySelector('.viewport').appendChild(helpEl);
@@ -1982,6 +2035,13 @@
   }
   function renderBoardPanelContent(){
     if(!boardPanelEl) return;
+    // The list is rebuilt from scratch below (a fresh .boardlist element
+    // starts at scrollTop 0), so switching to, renaming, or deleting a
+    // board that's scrolled down out of view used to visibly snap the
+    // panel back to the top every time. Save the outgoing list's scroll
+    // position here and restore it onto the new one once it's built.
+    var prevList = boardPanelEl.querySelector('.boardlist');
+    var savedScrollTop = prevList ? prevList.scrollTop : 0;
     boardPanelEl.innerHTML = '';
     var idx = loadBoardsIndex() || ensureBoardsIndex();
     var list = document.createElement('div');
@@ -2093,6 +2153,7 @@
     scrollEl.appendChild(scrollSvg);
     listWrap.appendChild(scrollEl);
     boardPanelEl.appendChild(listWrap);
+    if(savedScrollTop) list.scrollTop = savedScrollTop;
 
     // A one-off random wobble (not a repeating wave) gives the line's overall
     // curvature: a handful of random offsets planted at fixed intervals down

@@ -77,7 +77,13 @@ body{
   font-family:var(--ui-font);
   overflow:hidden;
 }
-.app{ height:100%; display:flex; flex-direction:column; position:relative; user-select:none; -webkit-user-select:none; }
+/* -webkit-touch-callout:none stops iOS's own long-press callout (the
+   copy/lookup popover, which comes with its own magnifier) from competing
+   with this app's OWN long-press gesture (touch multi-select, see the
+   pointerType==='touch' branch in buildNodeEl) — without it, holding a
+   finger on a circle or a photo could trigger Safari's native menu instead
+   of, or on top of, the app's own handling. */
+.app{ height:100%; display:flex; flex-direction:column; position:relative; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
 /* Dragging a marquee-select box, a node, or a connector line can sweep the
    mouse across the toolbar/zoom controls/help panel; without this the
    browser text-selects whatever UI chrome the drag passes over. Inputs and
@@ -409,6 +415,23 @@ svg.edges path.temp{ fill:none; stroke:var(--crayon); stroke-width:2.6; stroke-l
   word-break:break-word;
 }
 .editable:empty:before{ content:attr(data-placeholder); color:var(--ink-soft); }
+/* A blinking caret next to the placeholder, hinting the circle is
+   click-to-type before anyone has actually clicked it — without this
+   there was nothing on the page suggesting an empty circle was
+   interactive at all. Hidden once real editing starts (.node.editing),
+   since the real, native text-cursor takes over at that point and a
+   second blinking bar next to it would just look like a glitch. */
+.node:not(.editing) .editable:empty:after{
+  content:"";
+  display:inline-block;
+  width:2px;
+  height:1em;
+  margin-left:2px;
+  vertical-align:text-bottom;
+  background:var(--ink-soft);
+  animation:caretBlink 1s steps(1) infinite;
+}
+@keyframes caretBlink{ 50%{ opacity:0; } }
 .fit-btn{
   appearance:none;
   position:absolute;
