@@ -414,14 +414,28 @@ svg.edges path.temp{ fill:none; stroke:var(--crayon); stroke-width:2.6; stroke-l
   white-space:pre-wrap;
   word-break:break-word;
 }
-.editable:empty:before{ content:attr(data-placeholder); color:var(--ink-soft); }
-/* A blinking caret next to the placeholder, hinting the circle is
-   click-to-type before anyone has actually clicked it — without this
-   there was nothing on the page suggesting an empty circle was
-   interactive at all. Hidden once real editing starts (.node.editing),
-   since the real, native text-cursor takes over at that point and a
-   second blinking bar next to it would just look like a glitch. */
-.node:not(.editing) .editable:empty:after{
+/* .blank is tracked in JS (kept in sync by the 'input' listener below)
+   rather than relying on the :empty selector, because it also drives the
+   fake-caret rule further down, which needs to react the same way :empty
+   would but can't use :empty itself (see that rule for why). The
+   placeholder text itself is only shown at rest (:not(.editing)) — once
+   actually editing, only the caret below should show, not "Type
+   something" alongside it. */
+.node:not(.editing) .editable.blank:before{ content:attr(data-placeholder); color:var(--ink-soft); }
+/* An empty, focused contenteditable inside a flex-centered box like this
+   one doesn't reliably get its native blinking caret vertically centered —
+   some engines draw it pinned to the top of the box instead, even though
+   actually typed text centers correctly here (confirmed: the bug is
+   specific to the caret's own rendering on zero content, not the layout
+   itself). Rather than fight that per-engine quirk, the real caret is
+   hidden while a note is both empty and being edited, and this fake one —
+   built from the exact same flex-centered pseudo-element mechanism that
+   already centers the placeholder text correctly — stands in for it. The
+   moment real text exists .blank drops (via the 'input' listener), this
+   rule stops matching, and the browser's own correctly-centered native
+   caret takes over seamlessly. */
+.node.editing .editable.blank{ caret-color:transparent; }
+.node.editing .editable.blank:after{
   content:"";
   display:inline-block;
   width:2px;

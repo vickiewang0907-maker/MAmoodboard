@@ -903,7 +903,15 @@
       var placeholderText = 'Type something';
       editable.setAttribute('data-placeholder', placeholderText);
       editable.textContent = n.text || '';
+      editable.classList.toggle('blank', !n.text);
       editable.spellcheck = false;
+      // Keeps the .blank class (placeholder visibility) correct as the
+      // person types/deletes, independent of the filler <br> described
+      // above — textContent ignores a bare <br>, so this stays accurate
+      // whether or not that filler is currently present.
+      editable.addEventListener('input', function(){
+        editable.classList.toggle('blank', !editable.textContent);
+      });
       if(n.bigText){
         // Measure against the placeholder itself when there's no text yet,
         // so the empty-state hint doesn't get scaled past the circle.
@@ -921,6 +929,14 @@
         n.text = editable.innerText.replace(/\n$/, '');
         editable.contentEditable = 'false';
         el.classList.remove('editing');
+        // Setting contentEditable back to false does NOT reliably clear the
+        // browser's own text-selection/caret — some engines (notably mobile
+        // Chrome/WebView) keep rendering a real native blinking cursor at
+        // wherever it last sat, even though this element can no longer be
+        // typed into. Explicitly dropping the selection here prevents that
+        // ghost caret from lingering once the note is no longer selected.
+        var sel = window.getSelection && window.getSelection();
+        if(sel && sel.rangeCount) sel.removeAllRanges();
         saveState();
         render();
       });
@@ -1359,7 +1375,19 @@
     state.nodes.push(n);
     saveState(); render();
     var el = nodeEls[n.id];
-    if(el){ var ed = el.querySelector('.editable'); if(ed){ ed.contentEditable = 'true'; ed.focus(); } }
+    if(el){
+      var ed = el.querySelector('.editable');
+      if(ed){
+        // Must match what doubleTapAction does when it starts editing an
+        // existing note: add the .editing class before focusing, so the
+        // node's own CSS (:not(.editing) rules) and any other edit-mode
+        // styling stay in sync with the real focus state from the very
+        // first moment a brand-new note exists.
+        el.classList.add('editing');
+        ed.contentEditable = 'true';
+        ed.focus();
+      }
+    }
   }
 
   function addImageFile(file, worldPos){
